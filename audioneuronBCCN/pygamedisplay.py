@@ -58,7 +58,7 @@ class MembraneDisplay(pygame.Surface):
     def __coord2Px(self,x,y):
         xCoords = x*self.get_width()/self.xpoints
         yCoords = self.get_height()-self.get_height()*(y-self.ylim[0])/np.diff(self.ylim)
-        return zip(xCoords,yCoords)
+        return list(zip(xCoords,yCoords))
     
     def addValue(self,v):
         if v == []:
@@ -87,7 +87,7 @@ class GraphDisplay(pygame.Surface):
     def _coord2Px(self,x,y):
         xCoords = self.get_width()*(x-self.xlim[0])/np.diff(self.xlim)
         yCoords = self.get_height()-self.get_height()*(y-self.ylim[0])/np.diff(self.ylim)
-        return zip(xCoords,yCoords)
+        return list(zip(xCoords,yCoords))
     
     def plot(self,x,y):
         self.fill(self.bkgColor)
@@ -227,7 +227,7 @@ class FFTHandler(object):
 #        pygame.display.flip()
         
     def __fromNetwork(self,addr, tags, data, source):
-        print data
+        print(data)
         self.update()
  
 
@@ -275,7 +275,7 @@ class Display(Thread):
         self.__isRunning = False
         
     def plot(self):
-        print 'plotting'
+        print('plotting')
         self.graphDisplay.plotFitted(self.xData,self.yData)
         self.screen.update()
         
