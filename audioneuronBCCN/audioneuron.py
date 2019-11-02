@@ -37,33 +37,29 @@ class SoundHandler:
     
     def __createSound(self):
         numSamples = int(self.RATE*settings.toneDuration/1000.)
-        volumeScale = (.85)*32767
+        volumeScale = .85*32767
         twopi = 2*np.pi
-        sine = np.sin( np.arange(numSamples)*twopi*settings.neuronalFrequency/self.RATE )*volumeScale
-        
-        if settings.channel=='R':
-            signal = np.array((np.zeros_like(sine),sine))
-        elif settings.channel=='L':
-            signal = np.array((sine,np.zeros_like(sine)))
-        elif settings.channel=='LR':
-            signal = np.array((sine,sine))
+        sine = np.sin(np.arange(numSamples)*twopi*settings.neuronalFrequency/self.RATE)*volumeScale
+        signal = np.array((sine, sine))  # default to LR
+        if settings.channel == 'R':
+            signal = np.array((np.zeros_like(sine), sine))
+        elif settings.channel == 'L':
+            signal = np.array((sine, np.zeros_like(sine)))
         else:
-            print(('ERROR: unknown channel'. settings.channel))
+            print('ERROR: unknown channel {}'.format(settings.channel))
         signal = signal.transpose().flatten()
           
         # add an- u- abschwellen
         if settings.dampDuration<settings.toneDuration/2.:
-            numDampSamp = 2*int(self.RATE*settings.dampDuration)  # the 2 is the stereo
+            num_damp_samp = 2*int(self.RATE*settings.dampDuration)  # the 2 is the stereo
         else:
             print('WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2')
-            numDampSamp = 2*int(self.RATE*settings.toneDuration/2.) # the 2 is the stereo
-        dampVec = np.linspace(0,1,numDampSamp)
-        signal[0:numDampSamp] *= dampVec
-        signal[len(signal)-numDampSamp::] *= dampVec[::-1]
-        signal = np.append(signal,np.zeros(2*int(self.RATE*settings.endSilence)))
-    #        import pylab as pl
-    #        pl.plot(signal)
-    #        pl.show()
+            num_damp_samp = 2*int(self.RATE*settings.toneDuration/2.) # the 2 is the stereo
+        damp_vec = np.linspace(0, 1, num_damp_samp)
+        signal[0:num_damp_samp] *= damp_vec
+        signal[len(signal)-num_damp_samp::] *= damp_vec[::-1]
+        signal = np.append(signal, np.zeros(2*int(self.RATE*settings.endSilence)))
+
         self.__newdata = signal.astype(np.int16).tostring()
     
     def play(self):
