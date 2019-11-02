@@ -2,32 +2,27 @@ import numpy as np
 import pyaudio
 import wave
 import sys
-#import pylab as pl
-import matplotlib.collections as collections
 import time
 from threading import Thread
-from io import StringIO
 
 import pygame
 
-#import Tkinter
-#import FileDialog
 import valuehandler
 from neuroncontrol import DestexheNeuron
 from settings import *
 from pygamedisplay import FullDisplay
-#from visualizer import FFTPlotter
 
 
 p = pyaudio.PyAudio()
-
 valueHandler = valuehandler.ValueHandler()
+
 
 class SoundHandler:
     FORMAT = pyaudio.paInt16
     RATE = 44100
     CHANNELS = 2
     CHUNK = 1024
+
     def __init__(self):
         self.__createSound()
         self.__createStream()
@@ -78,7 +73,8 @@ class SoundHandler:
             self.__stream.write(data)
             idx += 4*self.CHUNK
             data = self.__newdata[idx:idx+4*self.CHUNK]
-            
+
+
 class OutputHandler:
     def __init__(self,intervals):
         self.__display = FullDisplay(playedFrequency = neuronalFrequency,
@@ -100,8 +96,10 @@ class OutputHandler:
     def toggleFullscreen(self):
         self.__display.toggleFullscreen()
 
+
 class ThreadRecorder(Thread):
     SWIDTH = pyaudio.get_sample_size(SoundHandler.FORMAT)
+
     def __init__(self,inputName='Built-in Microphone',channelId=1,refreshInterval = 0.05):
         super(ThreadRecorder,self).__init__()
         self.__refreshInterval = refreshInterval #s
@@ -151,8 +149,10 @@ class ThreadRecorder(Thread):
     def stop(self):
         self.__isRecording = False        
 
+
 class Recorder:
     SWIDTH = pyaudio.get_sample_size(SoundHandler.FORMAT)
+
     def __init__(self,inputName='Microphone',channelId=1,refreshInterval = 0.05):
         self.__refreshInterval = refreshInterval #s
         self.__nread = int(self.__refreshInterval*SoundHandler.RATE)
@@ -184,6 +184,7 @@ class Recorder:
             data = self.__stream.read(self.__nread, exception_on_overflow=False)
             realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
             self.__sendToEngine(realdata)
+
 
 class FrequencyDetector:
     def __init__(self,frequencies=None,threshold=150, tolerance=.1):
@@ -221,7 +222,8 @@ class FrequencyDetector:
             idx, = np.nonzero(actList)
             print(('detected:', np.array(self.__frequencies)[idx]))
         return actList
-    
+
+
 class FrequencyIdentifyer:
     def __init__(self,minFreq=1e2,maxFreq=1e4):
         self.__minFreq=minFreq
@@ -234,7 +236,6 @@ class FrequencyIdentifyer:
         return xData[np.argmax(fftData)]
     
 
-    
 class InputEngine:
     def __init__(self,recorder=Recorder(refreshInterval = 0.1)):
         self.attach(1)
@@ -277,6 +278,7 @@ class InputEngine:
             ''' SEND NEXT LINE TO A SUBPROCESS / MULTIPROCESS ! '''
             self.__outputCb()#(xData,fftData,self.__neuron._v,vals)
 
+
 class MainApp:
     def __init__(self,plot=False):
         pygame.init()
@@ -309,7 +311,8 @@ class MainApp:
             else:
                 self.__inputEngine.update()
                 now = time.time()
-    
+
+
 if __name__=='__main__':
     
     plot = True
@@ -322,4 +325,3 @@ if __name__=='__main__':
     
 #    input = InputEngine(plot=plot)
 #    raw_input('los?')
-    
