@@ -237,12 +237,15 @@ class FrequencyIdentifyer:
     
 
 class InputEngine:
-    def __init__(self,recorder=Recorder(refreshInterval = 0.1)):
+    __outputCb = None
+    __neuron = None
+
+    def __init__(self, recorder=Recorder(refreshInterval=0.1)):
         self.attach(1)
         self.__plot = plot
-        self.__detector = FrequencyDetector(frequencies = presynapticFrequencies,
-                                            tolerance = frequencyTolerance,
-                                            threshold = frequencyThreshold)
+        self.__detector = FrequencyDetector(frequencies=presynapticFrequencies,
+                                            tolerance=frequencyTolerance,
+                                            threshold=frequencyThreshold)
         self.__recorder = recorder
         self.__recorder.setEngineCb(self.__onAudioReceive)
         
@@ -250,28 +253,28 @@ class InputEngine:
     def intervals(self):
         return self.__detector.intervals
     
-    def setOutputCb(self,pyfunc):
+    def setOutputCb(self, pyfunc):
         self.__outputCb = pyfunc
         
     def update(self):
         self.__recorder.record()
         
-    def attach(self,neuronId):
-        '''connect a neuron to this Microphone, adding the freqs and the update Callback'''
+    def attach(self, neuronId):
+        """connect a neuron to this Microphone, adding the freqs and the update Callback"""
         self.__neuron = DestexheNeuron()
         pars = defaultPars(neuronalType)
         pars.update(neuronParameters)
         valueHandler.update(**pars)
-        self.__neuron.setParams(presynapticNeurons = presynapticNeurons,**pars)
+        self.__neuron.setParams(presynapticNeurons=presynapticNeurons, **pars)
         
-    def __onAudioReceive(self,data):
-        if len(data)>1:
-            fftData=np.fft.fft(data)/data.size
+    def __onAudioReceive(self, data):
+        if len(data) > 1:
+            fftData = np.fft.fft(data)/data.size
             fftData = np.abs(fftData[list(range(int(data.size/2)))])
             frqs = np.arange(data.size)/(data.size/float(SoundHandler.RATE))
             xData = frqs[list(range(int(data.size/2)))]
-            valueHandler.update(xData=xData,fftData=fftData)
-            detectedFreqs  = self.__detector.get(xData,fftData)
+            valueHandler.update(xData=xData, fftData=fftData)
+            detectedFreqs = self.__detector.get(xData, fftData)
             valueHandler.update(detectedFreqs=detectedFreqs)
             vals = self.__neuron.update()
 
