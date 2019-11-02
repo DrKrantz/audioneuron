@@ -280,14 +280,14 @@ class InputEngine:
 
 
 class MainApp:
-    def __init__(self,plot=False):
+    def __init__(self):
         pygame.init()
         self.__inputEngine = InputEngine()
         self.__outputHandler = OutputHandler(self.__inputEngine.intervals)
         self.__inputEngine.setOutputCb(self.__outputHandler.update)
         self.__fullscreen = False
         
-    def input(self,events):
+    def input(self, events):
         for event in events: 
             if event.type == pygame.locals.QUIT:
                 sys.exit(0)
@@ -295,20 +295,18 @@ class MainApp:
                 self.__outputHandler.forcePlay()
             elif event.type == pygame.locals.KEYDOWN:
                 if event.dict['key'] == pygame.locals.K_f:
-                    self.__fullscreen = not(self.__fullscreen)
+                    self.__fullscreen = not self.__fullscreen
                     if self.__fullscreen:
-                        pygame.display.set_mode(displaySize,pygame.locals.FULLSCREEN)
+                        pygame.display.set_mode(displaySize, pygame.locals.FULLSCREEN)
                     else:
                         pygame.display.set_mode(displaySize)
     
     def run(self):
-        updInt = .05
+        upd_int = .05
         now = time.time()
         while True:
             self.input(pygame.event.get())
-            if time.time()-now<updInt:
-                pass
-            else:
+            if time.time()-now >= upd_int:
                 self.__inputEngine.update()
                 now = time.time()
 
@@ -320,7 +318,7 @@ if __name__=='__main__':
         print((sys.argv))
         if sys.argv[-1] == 'p':
             plot = True
-    app = MainApp(plot)
+    app = MainApp()
     app.run()
     
 #    input = InputEngine(plot=plot)
