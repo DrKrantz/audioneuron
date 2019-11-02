@@ -9,7 +9,7 @@ import pygame
 
 import valuehandler
 from neuroncontrol import DestexheNeuron
-from settings import *
+import settings
 from pygamedisplay import FullDisplay
 
 
@@ -36,31 +36,31 @@ class SoundHandler:
                 frames_per_buffer = self.CHUNK)
     
     def __createSound(self):
-        numSamples = int(self.RATE*toneDuration/1000.)
+        numSamples = int(self.RATE*settings.toneDuration/1000.)
         volumeScale = (.85)*32767
         twopi = 2*np.pi
-        sine = np.sin( np.arange(numSamples)*twopi*neuronalFrequency/self.RATE )*volumeScale
+        sine = np.sin( np.arange(numSamples)*twopi*settings.neuronalFrequency/self.RATE )*volumeScale
         
-        if channel=='R':
+        if settings.channel=='R':
             signal = np.array((np.zeros_like(sine),sine))
-        elif channel=='L':
+        elif settings.channel=='L':
             signal = np.array((sine,np.zeros_like(sine)))
-        elif channel=='LR':
+        elif settings.channel=='LR':
             signal = np.array((sine,sine))
         else:
-            print(('ERROR: unknown channel'. channel))
+            print(('ERROR: unknown channel'. settings.channel))
         signal = signal.transpose().flatten()
           
         # add an- u- abschwellen
-        if dampDuration<toneDuration/2.:
-            numDampSamp = 2*int(self.RATE*dampDuration) # the 2 is the stereo
+        if settings.dampDuration<settings.toneDuration/2.:
+            numDampSamp = 2*int(self.RATE*settings.dampDuration)  # the 2 is the stereo
         else:
             print('WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2')
-            numDampSamp = 2*int(self.RATE*toneDuration/2.) # the 2 is the stereo
+            numDampSamp = 2*int(self.RATE*settings.toneDuration/2.) # the 2 is the stereo
         dampVec = np.linspace(0,1,numDampSamp)
         signal[0:numDampSamp] *= dampVec
         signal[len(signal)-numDampSamp::] *= dampVec[::-1]
-        signal = np.append(signal,np.zeros(2*int(self.RATE*endSilence)))
+        signal = np.append(signal,np.zeros(2*int(self.RATE*settings.endSilence)))
     #        import pylab as pl
     #        pl.plot(signal)
     #        pl.show()
@@ -77,11 +77,11 @@ class SoundHandler:
 
 class OutputHandler:
     def __init__(self,intervals):
-        self.__display = FullDisplay(playedFrequency = neuronalFrequency,
-                                     frequencies=presynapticFrequencies,
-                    intervals = intervals,
-                    types=list(presynapticNeurons.values()),
-                    width=displaySize[0],height=displaySize[1])
+        self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
+                                     frequencies=settings.presynapticFrequencies,
+                    intervals=intervals,
+                    types=list(settings.presynapticNeurons.values()),
+                    width=settings.displaySize[0], height=settings.displaySize[1])
         
         self.__player = SoundHandler()
             
@@ -202,14 +202,14 @@ class FrequencyDetector:
         return self.__detect(xData,fftData)
     
     def __createFrequencyIntervals(self,freqs,tol):
-        lower = (1-tol*(1-1/NOTERATIO))
-        upper = (1+tol*(NOTERATIO-1))
+        lower = (1-tol*(1-1/settings.NOTERATIO))
+        upper = (1+tol*(settings.NOTERATIO-1))
         [self.__frequencyIntervals.append([freq*lower,freq*upper]) for freq in freqs]
     
     def __detect(self,xData,fftData):
         actList = len(self.__frequencies)*[True]
         for id,(mn,mx) in enumerate(self.__frequencyIntervals):
-            if time.time() - self.__timeDetected[id] > toneDuration/1000.: 
+            if time.time() - self.__timeDetected[id] > settings.toneDuration/1000.:
                 idx, = np.nonzero((xData>=mn) & (xData<=mx)) 
                 volume = np.mean(fftData[idx])
                 if volume>self.__threshold:
@@ -243,9 +243,9 @@ class InputEngine:
     def __init__(self, recorder=Recorder(refreshInterval=0.1)):
         self.attach(1)
         self.__plot = plot
-        self.__detector = FrequencyDetector(frequencies=presynapticFrequencies,
-                                            tolerance=frequencyTolerance,
-                                            threshold=frequencyThreshold)
+        self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
+                                            tolerance=settings.frequencyTolerance,
+                                            threshold=settings.frequencyThreshold)
         self.__recorder = recorder
         self.__recorder.setEngineCb(self.__onAudioReceive)
         
@@ -262,10 +262,10 @@ class InputEngine:
     def attach(self, neuronId):
         """connect a neuron to this Microphone, adding the freqs and the update Callback"""
         self.__neuron = DestexheNeuron()
-        pars = defaultPars(neuronalType)
-        pars.update(neuronParameters)
+        pars = settings.defaultPars(settings.neuronalType)
+        pars.update(settings.neuronParameters)
         valueHandler.update(**pars)
-        self.__neuron.setParams(presynapticNeurons=presynapticNeurons, **pars)
+        self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
         
     def __onAudioReceive(self, data):
         if len(data) > 1:
@@ -300,9 +300,9 @@ class MainApp:
                 if event.dict['key'] == pygame.locals.K_f:
                     self.__fullscreen = not self.__fullscreen
                     if self.__fullscreen:
-                        pygame.display.set_mode(displaySize, pygame.locals.FULLSCREEN)
+                        pygame.display.set_mode(settings.displaySize, pygame.locals.FULLSCREEN)
                     else:
-                        pygame.display.set_mode(displaySize)
+                        pygame.display.set_mode(settings.displaySize)
     
     def run(self):
         upd_int = .05
