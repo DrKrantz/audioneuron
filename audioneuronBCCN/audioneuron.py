@@ -6,7 +6,7 @@ import sys
 import matplotlib.collections as collections
 import time
 from threading import Thread
-from StringIO import StringIO
+from io import StringIO
 
 import pygame
 
@@ -53,14 +53,14 @@ class SoundHandler:
         elif channel=='LR':
             signal = np.array((sine,sine))
         else:
-            print 'ERROR: unknown channel'. channel
+            print(('ERROR: unknown channel'. channel))
         signal = signal.transpose().flatten()
           
         # add an- u- abschwellen
         if dampDuration<toneDuration/2.:
             numDampSamp = 2*int(self.RATE*dampDuration) # the 2 is the stereo
         else:
-            print 'WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2'
+            print('WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2')
             numDampSamp = 2*int(self.RATE*toneDuration/2.) # the 2 is the stereo
         dampVec = np.linspace(0,1,numDampSamp)
         signal[0:numDampSamp] *= dampVec
@@ -84,7 +84,7 @@ class OutputHandler:
         self.__display = FullDisplay(playedFrequency = neuronalFrequency,
                                      frequencies=presynapticFrequencies,
                     intervals = intervals,
-                    types=presynapticNeurons.values(),
+                    types=list(presynapticNeurons.values()),
                     width=displaySize[0],height=displaySize[1])
         
         self.__player = SoundHandler()
@@ -119,10 +119,10 @@ class ThreadRecorder(Thread):
                 input = True,
                 input_device_index = index,
                 frames_per_buffer = SoundHandler.CHUNK)
-            print 'SETUP input:', inputName, 'connected'
+            print(('SETUP input:', inputName, 'connected'))
         else:
             ''' SEND TO STOUT? '''
-            print 'no such input device', inputName
+            print(('no such input device', inputName))
         
     def __getIndexByName(self,inputName):
         n = self.__p.get_device_count()
@@ -180,7 +180,7 @@ class Recorder:
             realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
             self.__sendToEngine(realdata)
         except IOError as ex:
-            print 'skipping audio', nbits
+            print(('skipping audio', nbits))
             data = self.__stream.read(self.__nread)
             realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
             self.__sendToEngine(realdata)
@@ -219,7 +219,7 @@ class FrequencyDetector:
                 actList[id] = False
         if np.any(actList):
             idx, = np.nonzero(actList)
-            print 'detected:', np.array(self.__frequencies)[idx]
+            print(('detected:', np.array(self.__frequencies)[idx]))
         return actList
     
 class FrequencyIdentifyer:
@@ -266,9 +266,9 @@ class InputEngine:
     def __onAudioReceive(self,data):
         if len(data)>1:
             fftData=np.fft.fft(data)/data.size
-            fftData = np.abs(fftData[range(data.size/2)])
+            fftData = np.abs(fftData[list(range(data.size/2))])
             frqs = np.arange(data.size)/(data.size/float(SoundHandler.RATE))
-            xData = frqs[range(data.size/2)]
+            xData = frqs[list(range(data.size/2))]
             valueHandler.update(xData=xData,fftData=fftData)
             detectedFreqs  = self.__detector.get(xData,fftData)
             valueHandler.update(detectedFreqs=detectedFreqs)
@@ -314,7 +314,7 @@ if __name__=='__main__':
     
     plot = True
     if len(sys.argv)>1:
-        print sys.argv
+        print((sys.argv))
         if sys.argv[-1] == 'p':
             plot = True
     app = MainApp(plot)
