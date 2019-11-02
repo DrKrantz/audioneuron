@@ -52,7 +52,7 @@ class MembraneDisplay(pygame.Surface):
                                              np.array([threshold,threshold]))
         self.fill(self.bkgColor)
         self.xdata = np.arange(xpoints)
-        self.ydata = np.ones(xpoints)*self.baseValue
+        self.ydata = np.ones(int(xpoints))*self.baseValue
         self.show()
         
     def __coord2Px(self,x,y):

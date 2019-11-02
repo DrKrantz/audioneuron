@@ -176,12 +176,12 @@ class Recorder:
     def record(self):
         nbits = self.__stream.get_read_available()
         try:
-            data = self.__stream.read(self.__nread)
+            data = self.__stream.read(self.__nread, exception_on_overflow=False)  # TODO catch proper exception
             realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
             self.__sendToEngine(realdata)
-        except IOError as ex:
+        except OSError as ex:
             print(('skipping audio', nbits))
-            data = self.__stream.read(self.__nread)
+            data = self.__stream.read(self.__nread, exception_on_overflow=False)
             realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
             self.__sendToEngine(realdata)
 
@@ -266,9 +266,9 @@ class InputEngine:
     def __onAudioReceive(self,data):
         if len(data)>1:
             fftData=np.fft.fft(data)/data.size
-            fftData = np.abs(fftData[list(range(data.size/2))])
+            fftData = np.abs(fftData[list(range(int(data.size/2)))])
             frqs = np.arange(data.size)/(data.size/float(SoundHandler.RATE))
-            xData = frqs[list(range(data.size/2))]
+            xData = frqs[list(range(int(data.size/2)))]
             valueHandler.update(xData=xData,fftData=fftData)
             detectedFreqs  = self.__detector.get(xData,fftData)
             valueHandler.update(detectedFreqs=detectedFreqs)
