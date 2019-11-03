@@ -149,44 +149,44 @@ class ThreadRecorder(Thread):
 class Recorder:
     SWIDTH = pyaudio.get_sample_size(ThreadRecorder.FORMAT)
 
-    def __init__(self,inputName='Microphone',channelId=1,refreshInterval = 0.05):
-        self.__refreshInterval = refreshInterval #s
+    def __init__(self, inputName='Microphone', channelId=1, refreshInterval = 0.05):
+        self.__refreshInterval = refreshInterval  # s
         self.__nread = int(self.__refreshInterval * SoundPlayer.RATE)
-        self.__createStream(inputName,channelId)
+        self.__createStream(inputName, channelId)
         self.__sendToEngine = None
         
     def setEngineCb(self,engineCb):
         self.__sendToEngine = engineCb 
         
-    def __createStream(self,inputName,channelId):
-        self.__stream = p.open(format = SoundPlayer.FORMAT,
-                               channels = channelId,
-                               rate = SoundPlayer.RATE,
-                               input = True,
-                               input_device_index = self.__getIndexByName(inputName),
-                               frames_per_buffer = SoundPlayer.CHUNK)
+    def __createStream(self, inputName, channelId):
+        self.__stream = p.open(format=ThreadRecorder.FORMAT,
+                               channels=channelId,
+                               rate=SoundPlayer.RATE,
+                               input=True,
+                               input_device_index=self.__getIndexByName(inputName),
+                               frames_per_buffer=ThreadRecorder.CHUNK)
         
-    def __getIndexByName(self,inputName):
+    def __getIndexByName(self, inputName):
         return 0
     
     def record(self):
         nbits = self.__stream.get_read_available()
         try:
             data = self.__stream.read(self.__nread, exception_on_overflow=False)  # TODO catch proper exception
-            realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
+            realdata = np.array(wave.struct.unpack("%dh" % (len(data)/self.SWIDTH), data))
             self.__sendToEngine(realdata)
         except OSError as ex:
             print(('skipping audio', nbits))
             data = self.__stream.read(self.__nread, exception_on_overflow=False)
-            realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
+            realdata = np.array(wave.struct.unpack("%dh" % (len(data)/self.SWIDTH), data))
             self.__sendToEngine(realdata)
 
 
 class FrequencyDetector:
-    def __init__(self,frequencies=None,threshold=150, tolerance=.1):
+    def __init__(self, frequencies=None, threshold=150, tolerance=.1):
         self.__frequencies = frequencies 
         self.__frequencyIntervals = []
-        self.__createFrequencyIntervals(frequencies,tolerance)
+        self.__createFrequencyIntervals(frequencies, tolerance)
         self.__threshold = threshold
         self.__timeDetected = np.zeros_like(frequencies)
         
@@ -194,21 +194,21 @@ class FrequencyDetector:
     def intervals(self):
         return self.__frequencyIntervals
 
-    def get(self,xData,fftData):
-        return self.__detect(xData,fftData)
+    def get(self ,xData, fftData):
+        return self.__detect(xData, fftData)
     
-    def __createFrequencyIntervals(self,freqs,tol):
-        lower = (1-tol*(1-1/settings.NOTERATIO))
-        upper = (1+tol*(settings.NOTERATIO-1))
-        [self.__frequencyIntervals.append([freq*lower,freq*upper]) for freq in freqs]
+    def __createFrequencyIntervals(self, freqs, tol):
+        lower = (1 - tol * (1-1/settings.NOTERATIO))
+        upper = (1 + tol * (settings.NOTERATIO-1))
+        [self.__frequencyIntervals.append([freq * lower, freq * upper]) for freq in freqs]
     
-    def __detect(self,xData,fftData):
+    def __detect(self, xData, fftData):
         actList = len(self.__frequencies)*[True]
-        for id,(mn,mx) in enumerate(self.__frequencyIntervals):
+        for id, (mn, mx) in enumerate(self.__frequencyIntervals):
             if time.time() - self.__timeDetected[id] > settings.toneDuration/1000.:
-                idx, = np.nonzero((xData>=mn) & (xData<=mx)) 
+                idx, = np.nonzero((xData >= mn) & (xData <= mx))
                 volume = np.mean(fftData[idx])
-                if volume>self.__threshold:
+                if volume > self.__threshold:
                     self.__timeDetected[id] = time.time()
                 else:
                     actList[id] = False
@@ -221,15 +221,15 @@ class FrequencyDetector:
 
 
 class FrequencyIdentifyer:
-    def __init__(self,minFreq=1e2,maxFreq=1e4):
+    def __init__(self, minFreq=1e2, maxFreq=1e4):
         self.__minFreq=minFreq
         self.__maxFreq=maxFreq
 
-    def get(self,xData,fftData):
-        return self.__detect(xData,fftData)
+    def get(self, x_data, fft_data):
+        return self.__detect(x_data, fft_data)
     
-    def __detect(self,xData,fftData):
-        return xData[np.argmax(fftData)]
+    def __detect(self, x_data, fft_data):
+        return x_data[np.argmax(fft_data)]
     
 
 class InputEngine:
