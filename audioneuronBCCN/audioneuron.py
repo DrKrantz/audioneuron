@@ -17,69 +17,66 @@ p = pyaudio.PyAudio()
 valueHandler = valuehandler.ValueHandler()
 
 
-class SoundHandler:
-    FORMAT = pyaudio.paInt16
+class SoundPlayer:
     RATE = 44100
     CHANNELS = 2
-    CHUNK = 1024
 
     def __init__(self):
-        self.__createSound()
-        self.__createStream()
-        
-    def __createStream(self):
-        self.__stream = p.open(format = self.FORMAT,
-                channels = self.CHANNELS,
-                rate = self.RATE,
-                input = True,
-                output = True,
-                frames_per_buffer = self.CHUNK)
+        self.__sound = np.array([])
+        self.__create_sound()
     
-    def __createSound(self):
-        numSamples = int(self.RATE*settings.toneDuration/1000.)
-        volumeScale = .85*32767
+    def __create_sound(self):
+        num_samples = int(self.RATE*settings.toneDuration/1000.)
+        bits = 16
         twopi = 2*np.pi
-        sine = np.sin(np.arange(numSamples)*twopi*settings.neuronalFrequency/self.RATE)*volumeScale
+
+        pygame.mixer.pre_init(44100, -bits, self.CHANNELS)
+        pygame.init()
+
+        max_sample = 2 ** (bits - 1) - 1
+        sine = max_sample * np.sin(np.arange(num_samples)*twopi*settings.neuronalFrequency/self.RATE)
+
+        #  add an- u- abschwellen
+        if settings.dampDuration < settings.toneDuration / 2.:
+            num_damp_samp = int(self.RATE * settings.dampDuration)
+        else:
+            print('WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2')
+            num_damp_samp = int(self.RATE * settings.toneDuration / 2.)  # the 2 is the stereo
+        damp_vec = np.linspace(0, 1, num_damp_samp)
+        sine[0:num_damp_samp] *= damp_vec
+        sine[len(sine) - num_damp_samp::] *= damp_vec[::-1]
+
+        #  add ending silence
+        sine = np.concatenate([sine, np.zeros(int(self.RATE * settings.endSilence))])
+
+        #  generate signal for channels
         signal = np.array((sine, sine))  # default to LR
         if settings.channel == 'R':
             signal = np.array((np.zeros_like(sine), sine))
         elif settings.channel == 'L':
             signal = np.array((sine, np.zeros_like(sine)))
+        elif settings.channel == 'LR':
+            pass
         else:
             print('ERROR: unknown channel {}'.format(settings.channel))
-        signal = signal.transpose().flatten()
-          
-        # add an- u- abschwellen
-        if settings.dampDuration<settings.toneDuration/2.:
-            num_damp_samp = 2*int(self.RATE*settings.dampDuration)  # the 2 is the stereo
-        else:
-            print('WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2')
-            num_damp_samp = 2*int(self.RATE*settings.toneDuration/2.) # the 2 is the stereo
-        damp_vec = np.linspace(0, 1, num_damp_samp)
-        signal[0:num_damp_samp] *= damp_vec
-        signal[len(signal)-num_damp_samp::] *= damp_vec[::-1]
-        signal = np.append(signal, np.zeros(2*int(self.RATE*settings.endSilence)))
 
-        self.__newdata = signal.astype(np.int16).tostring()
+        signal = np.ascontiguousarray(signal.T.astype(np.int16))
+        self.__sound = pygame.sndarray.make_sound(signal)
     
     def play(self):
-        idx = 0
-        data = self.__newdata[idx:idx+4*self.CHUNK]
-        while data != '':
-            self.__stream.write(data)
-            idx += 4*self.CHUNK
-            data = self.__newdata[idx:idx+4*self.CHUNK]
+        self.__sound.play()
 
 
 class OutputHandler:
     def __init__(self,intervals):
         self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
                                      frequencies=settings.presynapticFrequencies,
-                    intervals=intervals,
-                    types=list(settings.presynapticNeurons.values()),
-                    width=settings.displaySize[0], height=settings.displaySize[1])
+                                     intervals=intervals,
+                                     types=list(settings.presynapticNeurons.values()),
+                                     width=settings.displaySize[0],
+                                     height=settings.displaySize[1])
         
-        self.__player = SoundHandler()
+        self.__player = SoundPlayer()
             
     def update(self):
         self.__display.update()
@@ -94,12 +91,12 @@ class OutputHandler:
 
 
 class ThreadRecorder(Thread):
-    SWIDTH = pyaudio.get_sample_size(SoundHandler.FORMAT)
+    SWIDTH = pyaudio.get_sample_size(SoundPlayer.FORMAT)
 
     def __init__(self,inputName='Built-in Microphone',channelId=1,refreshInterval = 0.05):
         super(ThreadRecorder,self).__init__()
         self.__refreshInterval = refreshInterval #s
-        self.__nread = int(self.__refreshInterval*SoundHandler.RATE)
+        self.__nread = int(self.__refreshInterval * SoundPlayer.RATE)
         self.__p = pyaudio.PyAudio()
         self.__createStream(inputName,channelId)
         self.__isRecording = True
@@ -107,12 +104,12 @@ class ThreadRecorder(Thread):
     def __createStream(self,inputName,channelId):
         index = self.__getIndexByName(inputName)
         if index>=0:
-            self.__stream = self.__p.open(format = SoundHandler.FORMAT,
-                channels = channelId,
-                rate = SoundHandler.RATE,
-                input = True,
-                input_device_index = index,
-                frames_per_buffer = SoundHandler.CHUNK)
+            self.__stream = self.__p.open(format = SoundPlayer.FORMAT,
+                                          channels = channelId,
+                                          rate = SoundPlayer.RATE,
+                                          input = True,
+                                          input_device_index = index,
+                                          frames_per_buffer = SoundPlayer.CHUNK)
             print(('SETUP input:', inputName, 'connected'))
         else:
             ''' SEND TO STOUT? '''
@@ -147,11 +144,11 @@ class ThreadRecorder(Thread):
 
 
 class Recorder:
-    SWIDTH = pyaudio.get_sample_size(SoundHandler.FORMAT)
+    SWIDTH = pyaudio.get_sample_size(SoundPlayer.FORMAT)
 
     def __init__(self,inputName='Microphone',channelId=1,refreshInterval = 0.05):
         self.__refreshInterval = refreshInterval #s
-        self.__nread = int(self.__refreshInterval*SoundHandler.RATE)
+        self.__nread = int(self.__refreshInterval * SoundPlayer.RATE)
         self.__createStream(inputName,channelId)
         self.__sendToEngine = None
         
@@ -159,12 +156,12 @@ class Recorder:
         self.__sendToEngine = engineCb 
         
     def __createStream(self,inputName,channelId):
-        self.__stream = p.open(format = SoundHandler.FORMAT,
-            channels = channelId,
-            rate = SoundHandler.RATE,
-            input = True,
-            input_device_index = self.__getIndexByName(inputName),
-            frames_per_buffer = SoundHandler.CHUNK)
+        self.__stream = p.open(format = SoundPlayer.FORMAT,
+                               channels = channelId,
+                               rate = SoundPlayer.RATE,
+                               input = True,
+                               input_device_index = self.__getIndexByName(inputName),
+                               frames_per_buffer = SoundPlayer.CHUNK)
         
     def __getIndexByName(self,inputName):
         return 0
@@ -267,7 +264,7 @@ class InputEngine:
         if len(data) > 1:
             fftData = np.fft.fft(data)/data.size
             fftData = np.abs(fftData[list(range(int(data.size/2)))])
-            frqs = np.arange(data.size)/(data.size/float(SoundHandler.RATE))
+            frqs = np.arange(data.size)/(data.size / float(SoundPlayer.RATE))
             xData = frqs[list(range(int(data.size/2)))]
             valueHandler.update(xData=xData, fftData=fftData)
             detectedFreqs = self.__detector.get(xData, fftData)
@@ -293,7 +290,11 @@ class MainApp:
             elif event.type == pygame.locals.MOUSEBUTTONDOWN:
                 self.__outputHandler.forcePlay()
             elif event.type == pygame.locals.KEYDOWN:
-                if event.dict['key'] == pygame.locals.K_f:
+                if event.dict['key'] == pygame.locals.K_p:
+                    self.__outputHandler.forcePlay()
+                elif event.dict['key'] == pygame.locals.K_ESCAPE:
+                    sys.exit(0)
+                elif event.dict['key'] == pygame.locals.K_f:
                     self.__fullscreen = not self.__fullscreen
                     if self.__fullscreen:
                         pygame.display.set_mode(settings.displaySize, pygame.locals.FULLSCREEN)
@@ -301,7 +302,7 @@ class MainApp:
                         pygame.display.set_mode(settings.displaySize)
     
     def run(self):
-        upd_int = .05
+        upd_int = .01
         now = time.time()
         while True:
             self.input(pygame.event.get())
