@@ -68,7 +68,7 @@ class SoundPlayer:
 
 
 class OutputHandler:
-    def __init__(self,intervals):
+    def __init__(self, intervals):
         self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
                                      frequencies=settings.presynapticFrequencies,
                                      intervals=intervals,
@@ -91,60 +91,63 @@ class OutputHandler:
 
 
 class ThreadRecorder(Thread):
-    SWIDTH = pyaudio.get_sample_size(SoundPlayer.FORMAT)
+    FORMAT = pyaudio.paInt16
+    CHUNK = 1024
+    SWIDTH = pyaudio.get_sample_size(FORMAT)
 
-    def __init__(self,inputName='Built-in Microphone',channelId=1,refreshInterval = 0.05):
-        super(ThreadRecorder,self).__init__()
-        self.__refreshInterval = refreshInterval #s
-        self.__nread = int(self.__refreshInterval * SoundPlayer.RATE)
+    def __init__(self, input_name='Built-in Microphone', channel_id=1, refresh_interval=0.05):
+        super(ThreadRecorder, self).__init__()
+        self.__refresh_interval = refresh_interval  # s
+        self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
         self.__p = pyaudio.PyAudio()
-        self.__createStream(inputName,channelId)
-        self.__isRecording = True
+        self.__create_stream(input_name, channel_id)
+        self.__is_recording = True
+        self.__send_to_engine = None
         
-    def __createStream(self,inputName,channelId):
-        index = self.__getIndexByName(inputName)
-        if index>=0:
-            self.__stream = self.__p.open(format = SoundPlayer.FORMAT,
-                                          channels = channelId,
-                                          rate = SoundPlayer.RATE,
-                                          input = True,
-                                          input_device_index = index,
-                                          frames_per_buffer = SoundPlayer.CHUNK)
-            print(('SETUP input:', inputName, 'connected'))
+    def __create_stream(self, device_name, channel_id):
+        index = self.__get_index_by_name(device_name)
+        if index >= 0:
+            self.__stream = self.__p.open(format=self.FORMAT,
+                                          channels=channel_id,
+                                          rate=SoundPlayer.RATE,
+                                          input=True,
+                                          input_device_index=index,
+                                          frames_per_buffer=self.CHUNK)
+            print(('SETUP input:', device_name, 'connected'))
         else:
             ''' SEND TO STOUT? '''
-            print(('no such input device', inputName))
+            print(('no such input device', device_name))
         
-    def __getIndexByName(self,inputName):
+    def __get_index_by_name(self, device_name):
         n = self.__p.get_device_count()
         index = -1
         for k in range(n):
             inf = self.__p.get_device_info_by_index(k)
-            if inf['name']==inputName and inf['maxInputChannels']>0:
+            if inf['name'] == device_name and inf['maxInputChannels'] > 0:
                 index = inf['index']
+            return index
         return index
     
-    def setEngineCb(self,engineCb):
-        self.__sendToEngine = engineCb 
+    def setEngineCb(self, engine_cb):
+        self.__send_to_engine = engine_cb
     
-    def run(self): # has to be named 'run', because Thread.start() calls 'run'!!!
-        while self.__isRecording:
-            nbits = self.__stream.get_read_available()
-            realdata = None
+    def run(self):  # has to be named 'run', because Thread.start() calls 'run'!!!
+        while self.__is_recording:
+            data = None
             try:
-                data = self.__stream.read(self.__nread)
-                realdata = np.array(wave.struct.unpack("%dh"%(len(data)/self.SWIDTH),data))
-            except IOError as ex:
+                raw_data = self.__stream.read(self.__nread)
+                data = np.array(wave.struct.unpack("%dh" % (len(raw_data)/self.SWIDTH), raw_data))
+            except IOError:
                 pass
-            if realdata is not None:
-                self.__sendToEngine(realdata)
+            if data is not None:
+                self.__send_to_engine(data)
                 
     def stop(self):
-        self.__isRecording = False        
+        self.__is_recording = False
 
 
 class Recorder:
-    SWIDTH = pyaudio.get_sample_size(SoundPlayer.FORMAT)
+    SWIDTH = pyaudio.get_sample_size(ThreadRecorder.FORMAT)
 
     def __init__(self,inputName='Microphone',channelId=1,refreshInterval = 0.05):
         self.__refreshInterval = refreshInterval #s
