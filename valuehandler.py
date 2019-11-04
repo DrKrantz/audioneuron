@@ -42,4 +42,4 @@ class ValueHandler(Singleton):
         self.__values.update(dic)
     
     def keys(self):
-        return self.__values.keys()
+        return list(self.__values.keys())

@@ -124,7 +124,7 @@ class DestexheNeuron(object):
     
     def _setupSynapses(self):
         self._synapses = {}
-        for presNeuron,type in self._presynapticNeurons.iteritems():
+        for presNeuron,type in list(self._presynapticNeurons.items()):
             if type == 'E':
                 self._synapses[presNeuron] = Synapse(s=self._s_e)
             else:
@@ -149,7 +149,7 @@ class DestexheNeuron(object):
         output.write(self.recording['w']+'\n')
         output.write(self.recording['spikes'])
         output.close()
-        print 'parameters for port', int(self._port), 'saved'
+        print(('parameters for port', int(self._port), 'saved'))
         output.close()
         self.__hasRecorded = True
          
@@ -199,7 +199,7 @@ class DestexheNeuron(object):
     def _updateConductances(self,activeNeurons,dt):
 #        print ' ACTIVE:', activeNeurons
         input_e, input_i = 0,0
-        for neuron,synapse in self._synapses.iteritems():
+        for neuron,synapse in list(self._synapses.items()):
             if self._presynapticNeurons[neuron]=='E':
                 input_e += synapse.update(presynapticSpike = neuron in activeNeurons)
             else:
@@ -218,7 +218,7 @@ class PlasticDestexheNeuron(DestexheNeuron):
     
     def _setupSynapses(self):
         self._synapses = {}
-        for presNeuron,type in self._presynapticNeurons.iteritems():
+        for presNeuron,type in list(self._presynapticNeurons.items()):
             if type == 'E':
                 self._synapses[presNeuron] = PlasticSynapse(s=self._s_e)
             else:
@@ -227,7 +227,7 @@ class PlasticDestexheNeuron(DestexheNeuron):
 
     def _updateConductances(self,activeNeurons,dt):
         input_e, input_i = 0,0
-        for presNeuron,synapse in self._synapses.iteritems():
+        for presNeuron,synapse in list(self._synapses.items()):
             if self._presynapticNeurons[presNeuron]=='E':
                 input_e += synapse.update(self._runtime,
                         presynapticSpike = presNeuron in activeNeurons,
