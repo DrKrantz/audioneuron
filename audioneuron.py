@@ -183,50 +183,38 @@ class FrequencyDetector:
     def __init__(self, frequencies=None, threshold=150, tolerance=.1):
         self.__frequencies = frequencies 
         self.__frequencyIntervals = []
-        self.__createFrequencyIntervals(frequencies, tolerance)
+        self.__create_frequency_intervals(frequencies, tolerance)
         self.__threshold = threshold
-        self.__timeDetected = np.zeros_like(frequencies)
+        self.__time_detected = np.zeros_like(frequencies)
         
     @property
     def intervals(self):
         return self.__frequencyIntervals
 
-    def get(self ,xData, fftData):
-        return self.__detect(xData, fftData)
+    def get(self, x_data, fft_data):
+        return self.__detect(x_data, fft_data)
     
-    def __createFrequencyIntervals(self, freqs, tol):
+    def __create_frequency_intervals(self, freqs, tol):
         lower = (1 - tol * (1-1/settings.NOTERATIO))
         upper = (1 + tol * (settings.NOTERATIO-1))
         [self.__frequencyIntervals.append([freq * lower, freq * upper]) for freq in freqs]
     
-    def __detect(self, xData, fftData):
-        actList = len(self.__frequencies)*[True]
-        for id, (mn, mx) in enumerate(self.__frequencyIntervals):
-            if time.time() - self.__timeDetected[id] > settings.toneDuration/1000.:
-                idx, = np.nonzero((xData >= mn) & (xData <= mx))
-                volume = np.mean(fftData[idx])
-                if volume > self.__threshold:
-                    self.__timeDetected[id] = time.time()
-                else:
-                    actList[id] = False
-            else:
-                actList[id] = False
-        if np.any(actList):
-            idx, = np.nonzero(actList)
-            print(('detected:', np.array(self.__frequencies)[idx]))
-        return actList
-
-
-class FrequencyIdentifyer:
-    def __init__(self, minFreq=1e2, maxFreq=1e4):
-        self.__minFreq=minFreq
-        self.__maxFreq=maxFreq
-
-    def get(self, x_data, fft_data):
-        return self.__detect(x_data, fft_data)
-    
     def __detect(self, x_data, fft_data):
-        return x_data[np.argmax(fft_data)]
+        detected_freqs = len(self.__frequencies)*[True]
+        for idx, (mn, mx) in enumerate(self.__frequencyIntervals):
+            if time.time() - self.__time_detected[idx] > settings.toneDuration/1000.:
+                idx, = np.nonzero((x_data >= mn) & (x_data <= mx))
+                volume = np.mean(fft_data[idx])
+                if volume > self.__threshold:
+                    self.__time_detected[idx] = time.time()
+                else:
+                    detected_freqs[idx] = False
+            else:
+                detected_freqs[idx] = False
+        if np.any(detected_freqs):
+            idx, = np.nonzero(detected_freqs)
+            print(('detected:', np.array(self.__frequencies)[idx]))
+        return detected_freqs
     
 
 class InputEngine:
