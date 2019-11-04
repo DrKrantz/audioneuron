@@ -201,16 +201,16 @@ class FrequencyDetector:
     
     def __detect(self, x_data, fft_data):
         detected_freqs = len(self.__frequencies)*[True]
-        for idx, (mn, mx) in enumerate(self.__frequencyIntervals):
-            if time.time() - self.__time_detected[idx] > settings.toneDuration/1000.:
+        for freq_id, (mn, mx) in enumerate(self.__frequencyIntervals):
+            if time.time() - self.__time_detected[freq_id] > settings.toneDuration/1000.:
                 idx, = np.nonzero((x_data >= mn) & (x_data <= mx))
                 volume = np.mean(fft_data[idx])
                 if volume > self.__threshold:
-                    self.__time_detected[idx] = time.time()
+                    self.__time_detected[freq_id] = time.time()
                 else:
-                    detected_freqs[idx] = False
+                    detected_freqs[freq_id] = False
             else:
-                detected_freqs[idx] = False
+                detected_freqs[freq_id] = False
         if np.any(detected_freqs):
             idx, = np.nonzero(detected_freqs)
             print(('detected:', np.array(self.__frequencies)[idx]))
@@ -218,29 +218,29 @@ class FrequencyDetector:
     
 
 class InputEngine:
-    __outputCb = None
+    __output_cb = None
     __neuron = None
 
     def __init__(self, recorder=Recorder(refresh_interval=0.1)):
-        self.attach(1)
+        self.attach()
         self.__plot = plot
         self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
                                             tolerance=settings.frequencyTolerance,
                                             threshold=settings.frequencyThreshold)
         self.__recorder = recorder
-        self.__recorder.set_engine_cb(self.__onAudioReceive)
+        self.__recorder.set_engine_cb(self.__on_audio_receive)
         
     @property
     def intervals(self):
         return self.__detector.intervals
     
-    def setOutputCb(self, pyfunc):
-        self.__outputCb = pyfunc
+    def set_output_cb(self, callback):
+        self.__output_cb = callback
         
     def update(self):
         self.__recorder.record()
         
-    def attach(self, neuronId):
+    def attach(self):
         """connect a neuron to this Microphone, adding the freqs and the update Callback"""
         self.__neuron = DestexheNeuron()
         pars = settings.defaultPars(settings.neuronalType)
@@ -248,19 +248,19 @@ class InputEngine:
         valueHandler.update(**pars)
         self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
         
-    def __onAudioReceive(self, data):
+    def __on_audio_receive(self, data):
         if len(data) > 1:
-            fftData = np.fft.fft(data)/data.size
-            fftData = np.abs(fftData[list(range(int(data.size/2)))])
+            fft_data = np.fft.fft(data)/data.size
+            fft_data = np.abs(fft_data[list(range(int(data.size/2)))])
             frqs = np.arange(data.size)/(data.size / float(SoundPlayer.RATE))
-            xData = frqs[list(range(int(data.size/2)))]
-            valueHandler.update(xData=xData, fftData=fftData)
-            detectedFreqs = self.__detector.get(xData, fftData)
-            valueHandler.update(detectedFreqs=detectedFreqs)
-            vals = self.__neuron.update()
+            x_data = frqs[list(range(int(data.size/2)))]
+            valueHandler.update(xData=x_data, fftData=fft_data)
+            detected_freqs = self.__detector.get(x_data, fft_data)
+            valueHandler.update(detectedFreqs=detected_freqs)
+            self.__neuron.update()
 
             ''' SEND NEXT LINE TO A SUBPROCESS / MULTIPROCESS ! '''
-            self.__outputCb()#(xData,fftData,self.__neuron._v,vals)
+            self.__output_cb()#(xData,fftData,self.__neuron._v,vals)
 
 
 class MainApp:
@@ -268,7 +268,7 @@ class MainApp:
         pygame.init()
         self.__inputEngine = InputEngine()
         self.__outputHandler = OutputHandler(self.__inputEngine.intervals)
-        self.__inputEngine.setOutputCb(self.__outputHandler.update)
+        self.__inputEngine.set_output_cb(self.__outputHandler.update)
         self.__fullscreen = False
         
     def input(self, events):
