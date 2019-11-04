@@ -33,7 +33,7 @@ class SoundPlayer:
     CHANNELS = 2
 
     def __init__(self):
-        self.__sound = pygame.sndarray([])
+        self.__sound = []
         self.__create_sound()
     
     def __create_sound(self):
