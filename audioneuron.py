@@ -13,8 +13,19 @@ import settings
 from pygamedisplay import FullDisplay
 
 
-p = pyaudio.PyAudio()
 valueHandler = valuehandler.ValueHandler()
+p = pyaudio.PyAudio()
+
+
+def get_index_by_name(input_name):
+    n = p.get_device_count()
+    index = -1
+    for k in range(n):
+        inf = p.get_device_info_by_index(k)
+        if inf['name'] == input_name and inf['maxInputChannels'] > 0:
+            index = inf['index']
+        return index
+    return index
 
 
 class SoundPlayer:
@@ -83,10 +94,10 @@ class OutputHandler:
         if valueHandler['hasSpiked']:
             self.__player.play()
     
-    def forcePlay(self):
+    def play(self):
         self.__player.play()
     
-    def toggleFullscreen(self):
+    def toggle_fullscreen(self):
         self.__display.toggleFullscreen()
 
 
@@ -99,36 +110,25 @@ class ThreadRecorder(Thread):
         super(ThreadRecorder, self).__init__()
         self.__refresh_interval = refresh_interval  # s
         self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
-        self.__p = pyaudio.PyAudio()
         self.__create_stream(input_name, channel_id)
         self.__is_recording = True
         self.__send_to_engine = None
         
     def __create_stream(self, device_name, channel_id):
-        index = self.__get_index_by_name(device_name)
+        index = get_index_by_name(device_name)
         if index >= 0:
-            self.__stream = self.__p.open(format=self.FORMAT,
-                                          channels=channel_id,
-                                          rate=SoundPlayer.RATE,
-                                          input=True,
-                                          input_device_index=index,
-                                          frames_per_buffer=self.CHUNK)
+            self.__stream = p.open(format=self.FORMAT,
+                                   channels=channel_id,
+                                   rate=SoundPlayer.RATE,
+                                   input=True,
+                                   input_device_index=index,
+                                   frames_per_buffer=self.CHUNK)
             print(('SETUP input:', device_name, 'connected'))
         else:
             ''' SEND TO STOUT? '''
             print(('no such input device', device_name))
-        
-    def __get_index_by_name(self, device_name):
-        n = self.__p.get_device_count()
-        index = -1
-        for k in range(n):
-            inf = self.__p.get_device_info_by_index(k)
-            if inf['name'] == device_name and inf['maxInputChannels'] > 0:
-                index = inf['index']
-            return index
-        return index
     
-    def setEngineCb(self, engine_cb):
+    def set_engine_cb(self, engine_cb):
         self.__send_to_engine = engine_cb
     
     def run(self):  # has to be named 'run', because Thread.start() calls 'run'!!!
@@ -149,37 +149,34 @@ class ThreadRecorder(Thread):
 class Recorder:
     SWIDTH = pyaudio.get_sample_size(ThreadRecorder.FORMAT)
 
-    def __init__(self, inputName='Microphone', channelId=1, refreshInterval = 0.05):
-        self.__refreshInterval = refreshInterval  # s
-        self.__nread = int(self.__refreshInterval * SoundPlayer.RATE)
-        self.__createStream(inputName, channelId)
-        self.__sendToEngine = None
+    def __init__(self, input_name='Microphone', channel_id=1, refresh_interval = 0.05):
+        self.__refresh_interval = refresh_interval  # s
+        self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
+        self.__create_stream(input_name, channel_id)
+        self.__send_to_engine = None
         
-    def setEngineCb(self,engineCb):
-        self.__sendToEngine = engineCb 
+    def set_engine_cb(self, engine_cb):
+        self.__send_to_engine = engine_cb
         
-    def __createStream(self, inputName, channelId):
+    def __create_stream(self, input_name, channel_id):
         self.__stream = p.open(format=ThreadRecorder.FORMAT,
-                               channels=channelId,
+                               channels=channel_id,
                                rate=SoundPlayer.RATE,
                                input=True,
-                               input_device_index=self.__getIndexByName(inputName),
+                               input_device_index=get_index_by_name(input_name),
                                frames_per_buffer=ThreadRecorder.CHUNK)
         
-    def __getIndexByName(self, inputName):
-        return 0
-    
     def record(self):
         nbits = self.__stream.get_read_available()
         try:
-            data = self.__stream.read(self.__nread, exception_on_overflow=False)  # TODO catch proper exception
-            realdata = np.array(wave.struct.unpack("%dh" % (len(data)/self.SWIDTH), data))
-            self.__sendToEngine(realdata)
-        except OSError as ex:
+            raw_data = self.__stream.read(self.__nread, exception_on_overflow=False)  # TODO catch proper exception
+            data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
+            self.__send_to_engine(data)
+        except OSError:
             print(('skipping audio', nbits))
-            data = self.__stream.read(self.__nread, exception_on_overflow=False)
-            realdata = np.array(wave.struct.unpack("%dh" % (len(data)/self.SWIDTH), data))
-            self.__sendToEngine(realdata)
+            raw_data = self.__stream.read(self.__nread, exception_on_overflow=False)
+            data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
+            self.__send_to_engine(data)
 
 
 class FrequencyDetector:
@@ -236,14 +233,14 @@ class InputEngine:
     __outputCb = None
     __neuron = None
 
-    def __init__(self, recorder=Recorder(refreshInterval=0.1)):
+    def __init__(self, recorder=Recorder(refresh_interval=0.1)):
         self.attach(1)
         self.__plot = plot
         self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
                                             tolerance=settings.frequencyTolerance,
                                             threshold=settings.frequencyThreshold)
         self.__recorder = recorder
-        self.__recorder.setEngineCb(self.__onAudioReceive)
+        self.__recorder.set_engine_cb(self.__onAudioReceive)
         
     @property
     def intervals(self):
@@ -291,10 +288,10 @@ class MainApp:
             if event.type == pygame.locals.QUIT:
                 sys.exit(0)
             elif event.type == pygame.locals.MOUSEBUTTONDOWN:
-                self.__outputHandler.forcePlay()
+                self.__outputHandler.play()
             elif event.type == pygame.locals.KEYDOWN:
                 if event.dict['key'] == pygame.locals.K_p:
-                    self.__outputHandler.forcePlay()
+                    self.__outputHandler.play()
                 elif event.dict['key'] == pygame.locals.K_ESCAPE:
                     sys.exit(0)
                 elif event.dict['key'] == pygame.locals.K_f:
