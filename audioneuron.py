@@ -33,7 +33,7 @@ class SoundPlayer:
     CHANNELS = 2
 
     def __init__(self):
-        self.__sound = np.array([])
+        self.__sound = pygame.sndarray([])
         self.__create_sound()
     
     def __create_sound(self):
@@ -149,7 +149,7 @@ class ThreadRecorder(Thread):
 class Recorder:
     SWIDTH = pyaudio.get_sample_size(ThreadRecorder.FORMAT)
 
-    def __init__(self, input_name='Microphone', channel_id=1, refresh_interval = 0.05):
+    def __init__(self, input_name='Microphone', channel_id=1, refresh_interval=0.05):
         self.__refresh_interval = refresh_interval  # s
         self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
         self.__create_stream(input_name, channel_id)
@@ -260,7 +260,7 @@ class InputEngine:
             self.__neuron.update()
 
             ''' SEND NEXT LINE TO A SUBPROCESS / MULTIPROCESS ! '''
-            self.__output_cb()#(xData,fftData,self.__neuron._v,vals)
+            self.__output_cb()  # (xData,fftData,self.__neuron._v,vals)
 
 
 class MainApp:
@@ -299,11 +299,10 @@ class MainApp:
                 now = time.time()
 
 
-if __name__=='__main__':
-    
+if __name__ == '__main__':
     plot = True
-    if len(sys.argv)>1:
-        print((sys.argv))
+    if len(sys.argv) > 1:
+        print(sys.argv)
         if sys.argv[-1] == 'p':
             plot = True
     app = MainApp()
