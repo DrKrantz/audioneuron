@@ -33,8 +33,9 @@ class SoundPlayer:
     CHANNELS = 2
 
     def __init__(self):
-        self.__sound = []
+        self.__sound = pygame.mixer.Sound(np.array([]))
         self.__create_sound()
+        self.__channel = self.__sound.play()
     
     def __create_sound(self):
         num_samples = int(self.RATE*settings.toneDuration/1000.)
@@ -75,7 +76,10 @@ class SoundPlayer:
         self.__sound = pygame.sndarray.make_sound(signal)
     
     def play(self):
-        self.__sound.play()
+        self.__channel = self.__sound.play()
+
+    def get_busy(self):
+        return self.__channel.get_busy()
 
 
 class OutputHandler:
@@ -96,6 +100,9 @@ class OutputHandler:
     
     def play(self):
         self.__player.play()
+
+    def is_sound_on(self):
+        return self.__player.get_busy()
     
     def toggle_fullscreen(self):
         self.__display.toggleFullscreen()
@@ -295,8 +302,9 @@ class MainApp:
         while True:
             self.input(pygame.event.get())
             if time.time()-now >= upd_int:
-                self.__inputEngine.update()
                 now = time.time()
+                if not self.__outputHandler.is_sound_on():
+                    self.__inputEngine.update()
 
 
 if __name__ == '__main__':

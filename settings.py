@@ -1,5 +1,5 @@
 neuronId = 6
-neuronalFrequency = 550
+neuronalFrequency = 880
 neuronalType = 'I'
 toneDuration = 500  # ms
 frequencyThreshold = 150
