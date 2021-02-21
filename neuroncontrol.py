@@ -2,34 +2,35 @@
 
 import math
 import time
-#import pickle
 import numpy as np
 import valuehandler
 valueHandler = valuehandler.ValueHandler()
 
+
 class Synapse(object):
-    def __init__(self,s=6e-10):
-        super(Synapse,self).__init__()
+    def __init__(self, s=6e-10):
+        super(Synapse, self).__init__()
         self.strength = s
         
-    def update(self,presynapticSpike=True):
+    def update(self, presynapticSpike=True):
         if presynapticSpike:
             return self.strength
         else:
             return 0
 
+
 class PlasticSynapse(Synapse):
-    def __init__(self,tauSTDP=0.02,Aplus=1e-9,Aminus=0,**kwargs):#
+    def __init__(self, tauSTDP=0.02, Aplus=1e-9, Aminus=0, **kwargs):
         super(PlasticSynapse,self).__init__(**kwargs)
         self.tauSTDP = tauSTDP
         self.Aplus = Aplus
         self.Aminus = Aminus
         self.lastActive = 0
     
-    def setLastSpikeGetter(self,lastSpikeGetter):
+    def setLastSpikeGetter(self, lastSpikeGetter):
         self.__getlastSpike = lastSpikeGetter
     
-    def update(self,time,presynapticSpike=True, postsynapticSpike=True):
+    def update(self, time, presynapticSpike=True, postsynapticSpike=True):
         if presynapticSpike and not postsynapticSpike:
             self.lastActive=time
             self.strength -= self.Aminus*math.exp(
@@ -44,6 +45,7 @@ class PlasticSynapse(Synapse):
             returnValue = 0
         return returnValue
 
+
 class Neuron(object):
     def __init__(self):
         super(Neuron,self).__init__()
@@ -51,13 +53,13 @@ class Neuron(object):
         self._v = 0
 
         self._gL = 0  # leak conductances, S/cm2
-        self._threshold = 0 #firing threshold of individual neurons, V
-        self._Cm = 0 # membrane capacitance, F/cm2
-        self._gL = 0 # leak conductances, S/cm2
-        self._EL = 0 # resting potential = reset after spike, V
-        self._Delta = 0 # steepness of exponential, V
-        self._S = 0 # membrane area, cm2
-        self._dead = 0 # deadtime
+        self._threshold = 0  # firing threshold of individual neurons, V
+        self._Cm = 0  # membrane capacitance, F/cm2
+        self._gL = 0   # leak conductances, S/cm2
+        self._EL = 0  # resting potential = reset after spike, V
+        self._Delta = 0  # steepness of exponential, V
+        self._S = 0  # membrane area, cm2
+        self._dead = 0  # deadtime
         self._external = 0
         self._hasSpiked = False
     
@@ -70,53 +72,53 @@ class DestexheNeuron(object):
         super(DestexheNeuron,self).__init__()
         self.setParams(**kwargs)
 
-         #  initialize reamining values         
+        #  initialize reamining values
         self._remainingDeadtime = 0
         self._w = 0
         self._ge = 0
         self._gi = 0
         self._hasSpiked = False
         self.__lastUpdate = time.time()
-        self.recording = {'ge':'ge','gi':'gi','v':'v','spikes':'spikes','w':'w'}
+        self.recording = {'ge': 'ge', 'gi': 'gi', 'v': 'v', 'spikes': 'spikes', 'w': 'w'}
         self.recordingActive = False
         self.__hasRecorded = False
         self._setupSynapses()
     
-    def setParams(self,threshold = -50e-3, Cm = 1e-6, gL = 0.05e-3, EL = -60e-3,
-                Delta = 2.5e-3,
-                S = 20000e-8,dead = 2.5e-3, a = 0.08e-6, b = 0, tau_w = 600e-3, 
-                Ee = 0e-3, Ei = -80e-3,
-                s_e = 6e-10, s_i = 67e-9, tau_e = 5e-3, tau_i = 10e-3,
-                external = 0,presynapticNeurons = {},maxMspTime = 20./1,port=0):
+    def setParams(self,threshold = -50e-3, Cm=1e-6, gL=0.05e-3, EL=-60e-3,
+                Delta=2.5e-3,
+                S=20000e-8, dead=2.5e-3, a=0.08e-6, b=0, tau_w=600e-3,
+                Ee=0e-3, Ei=-80e-3,
+                s_e=6e-10, s_i=67e-9, tau_e=5e-3, tau_i=10e-3,
+                external=0, presynapticNeurons={}, maxMspTime=20./1, port=0):
         
-        self._threshold = threshold #firing threshold of individual neurons, V
-        self._Cm = Cm # membrane capacitance, F/cm2
-        self._gL = gL # leak conductances, S/cm2
-        self._EL = EL # resting potential = reset after spike, V
-        self._Delta = Delta # steepness of exponential, V
-        self._S = S # membrane area, cm2
-        self._dead = dead # deadtime
+        self._threshold = threshold  # firing threshold of individual neurons, V
+        self._Cm = Cm  # membrane capacitance, F/cm2
+        self._gL = gL  # leak conductances, S/cm2
+        self._EL = EL  # resting potential = reset after spike, V
+        self._Delta = Delta  # steepness of exponential, V
+        self._S = S  # membrane area, cm2
+        self._dead = dead  # deadtime
         
         self._a = a  # adaptation dynamics of the synapses, S
         self._b = b  # increment of adaptation after a spike
-        self._tau_w = tau_w# time-constant of adaptation variable, sec
-        self._Ee = Ee #reversal potential of excitatory synapses, V
-        self._Ei = Ei #reversal potential of inhibitory synapses, V
+        self._tau_w = tau_w  # time-constant of adaptation variable, sec
+        self._Ee = Ee  # reversal potential of excitatory synapses, V
+        self._Ei = Ei  # reversal potential of inhibitory synapses, V
         self._external = external
         self._v = EL
 
-        self._s_e = s_e # increment of excitatory synaptic conductance per spike, S,
+        self._s_e = s_e  # increment of excitatory synaptic conductance per spike, S,
         self._s_i = s_i  # increment of inhibitory synaptic conductance S per spike
-        self._tau_e = tau_e #sec,
+        self._tau_e = tau_e  #sec,
         self._tau_i = tau_i  #sec
-        self._presynapticNeurons = presynapticNeurons #{freq: neuronType (E/I)}
-        self._maxMspTime = maxMspTime # 1 sec in python corresponds to maxMspTime secs in Max/MSP
-        self._port=port
+        self._presynapticNeurons = presynapticNeurons  #{freq: neuronType (E/I)}
+        self._maxMspTime = maxMspTime  # 1 sec in python corresponds to maxMspTime secs in Max/MSP
+        self._port = port
         self._runtime = 0
         self._setupSynapses()
     
     def switchRecordingState(self):
-        if not(self.recordingActive):
+        if not self.recordingActive:
             self.recordingActive = True
         else:
             self.recordingActive = False
@@ -124,7 +126,7 @@ class DestexheNeuron(object):
     
     def _setupSynapses(self):
         self._synapses = {}
-        for presNeuron,type in list(self._presynapticNeurons.items()):
+        for presNeuron, type in list(self._presynapticNeurons.items()):
             if type == 'E':
                 self._synapses[presNeuron] = Synapse(s=self._s_e)
             else:
@@ -134,7 +136,7 @@ class DestexheNeuron(object):
         if self.recordingActive:
             recordingAccuracy = 1e5
 #            if (self._runtime<2) and not(self.__hasRecorded):
-            self.recording['v'] += ', '+str(self._v)#str(round(recordingAccuracy*self._v)/recordingAccuracy)
+            self.recording['v'] += ', '+str(self._v)  #str(round(recordingAccuracy*self._v)/recordingAccuracy)
             self.recording['ge'] += ', '+str(self._ge)
             self.recording['gi'] += ', '+str(self._gi)
             self.recording['spikes'] += ', '+str(int(self._hasSpiked))
@@ -154,17 +156,15 @@ class DestexheNeuron(object):
         self.__hasRecorded = True
          
     def update(self):
-#        print self._runtime
-#        print 'DestexheNeuron.update', activeNeurons
         activeNeurons, = np.nonzero(valueHandler['detectedFreqs'])
         self._updateMembrane(activeNeurons)
         factor = 1
-        valueHandler.update(hasSpiked = self._hasSpiked,v = self._v,
+        valueHandler.update(hasSpiked = self._hasSpiked, v = self._v,
                             ge=factor*self._ge, gi=factor*self._gi,
                             w=factor*self._w)
         return self._hasSpiked,self._v, factor*self._ge, factor*self._gi, factor*self._w
     
-    def _updateMembrane(self,activeNeurons):
+    def _updateMembrane(self, activeNeurons):
         '''
         # COMPUTE dt!!!
         realdt = (time.time()-self.__lastUpdate)
@@ -172,45 +172,44 @@ class DestexheNeuron(object):
         self.__lastUpdate = time.time()
         '''
         if self._v>=self._threshold:
-            self._v = self._EL  #set spiked neurons to reset potential
+            self._v = self._EL  # set spiked neurons to reset potential
         dt = 1e-3
         self._runtime += dt
-        self._updateConductances(activeNeurons,dt)
+        self._updateConductances(activeNeurons, dt)
         self._hasSpiked = False
         if self._remainingDeadtime>0:
             self._remainingDeadtime -= dt
         else:
             # UPDATE MEMBRANE POTENTIAL, ADAPTATION AND CHECK FOR SPIKE
-            v = self._v + dt*(-self._gL*(self._v-self._EL) + \
-                        self._gL*self._Delta*math.exp((self._v-self._threshold)/self._Delta) \
-                        - self._w/self._S \
-                        - self._ge*(self._v-self._Ee)/self._S  \
-                        - self._gi*(self._v-self._Ei)/self._S
-                            )/self._Cm
+            v = self._v + dt*(-self._gL*(self._v-self._EL) +
+                              self._gL*self._Delta*math.exp((self._v-self._threshold)/self._Delta)
+                              - self._w/self._S
+                              - self._ge*(self._v-self._Ee)/self._S
+                              - self._gi*(self._v-self._Ei)/self._S
+                              )/self._Cm
             self._v = v + dt*self._external/self._Cm
             self._w += dt*(self._a*(self._v-self._EL)-self._w)/self._tau_w
-            if self._v>=self._threshold:
+            if self._v >= self._threshold:
                 self._remainingDeadtime = self._dead
-                self._w += 0#self._b #increment adaptation variable of spiked neurons
+                self._w += 0  # self._b #increment adaptation variable of spiked neurons
                 self._hasSpiked = True
                 
         self.__recordVariables()
             
-    def _updateConductances(self,activeNeurons,dt):
-#        print ' ACTIVE:', activeNeurons
+    def _updateConductances(self, activeNeurons, dt):
         input_e, input_i = 0,0
-        for neuron,synapse in list(self._synapses.items()):
+        for neuron, synapse in list(self._synapses.items()):
             if self._presynapticNeurons[neuron]=='E':
-                input_e += synapse.update(presynapticSpike = neuron in activeNeurons)
+                input_e += synapse.update(presynapticSpike=neuron in activeNeurons)
             else:
-                input_i += synapse.update(presynapticSpike = neuron in activeNeurons)
+                input_i += synapse.update(presynapticSpike=neuron in activeNeurons)
         self._ge += -dt*self._ge/self._tau_e+input_e
         self._gi += -dt*self._gi/self._tau_i+input_i
         
 
 class PlasticDestexheNeuron(DestexheNeuron):
-    def __init__(self,**kwargs):
-        super(PlasticDestexheNeuron,self).__init__(**kwargs)
+    def __init__(self, **kwargs):
+        super(PlasticDestexheNeuron, self).__init__(**kwargs)
         self.__lastSpikeTime = 0
         
     def __lastSpikeGetter(self):
@@ -218,32 +217,32 @@ class PlasticDestexheNeuron(DestexheNeuron):
     
     def _setupSynapses(self):
         self._synapses = {}
-        for presNeuron,type in list(self._presynapticNeurons.items()):
-            if type == 'E':
+        for presNeuron, n_type in list(self._presynapticNeurons.items()):
+            if n_type == 'E':
                 self._synapses[presNeuron] = PlasticSynapse(s=self._s_e)
             else:
                 self._synapses[presNeuron] = PlasticSynapse(s=self._s_i)
             self._synapses[presNeuron].setLastSpikeGetter(self.__lastSpikeGetter)
 
-    def _updateConductances(self,activeNeurons,dt):
-        input_e, input_i = 0,0
-        for presNeuron,synapse in list(self._synapses.items()):
-            if self._presynapticNeurons[presNeuron]=='E':
+    def _updateConductances(self, activeNeurons, dt):
+        input_e, input_i = 0, 0
+        for presNeuron, synapse in list(self._synapses.items()):
+            if self._presynapticNeurons[presNeuron] == 'E':
                 input_e += synapse.update(self._runtime,
-                        presynapticSpike = presNeuron in activeNeurons,
-                        postsynapticSpike = self._hasSpiked)
+                                          presynapticSpike=presNeuron in activeNeurons,
+                                          postsynapticSpike=self._hasSpiked)
             else:
                 input_i += synapse.update(self._runtime,
-                        presynapticSpike = presNeuron in activeNeurons,
-                        postsynapticSpike = self._hasSpiked)
+                                          presynapticSpike=presNeuron in activeNeurons,
+                                          postsynapticSpike=self._hasSpiked)
         self._ge += -dt*self._ge/self._tau_e + input_e
         self._gi += -dt*self._gi/self._tau_i + input_i
     
-    def update(self,activeNeurons):
+    def update(self, activeNeurons):
         self._updateMembrane(activeNeurons)
         if self._hasSpiked:
             self.__lastSpikeTime = self._runtime
-        return self._hasSpiked,self._v
+        return self._hasSpiked, self._v
 
 def osclist2Dict(inputString):
     args = ['port','threshold','Cm', 'gL', 'EL','Delta','S','dead', 'a', 'b', 'tau_w', 
@@ -258,50 +257,50 @@ def osclist2Dict(inputString):
     val = []
     for entry in inputList:
         if entry in args:
-            parDict[key] = val[0] if len(val)==1 else val
+            parDict[key] = val[0] if len(val) == 1 else val
             key = entry
             val = []
         else:
-            if entry in ['E','I']:
+            if entry in ['E', 'I']:
                 val.append(entry)
             else:
                 val.append(float(entry))
-    parDict[key] = val[0] if len(val)==1 else val
+    parDict[key] = val[0] if len(val) == 1 else val
     parDict.pop('trash')
     return parDict
 
 
 def splitParDict(parDict):
     # construct the liste that's sent back to Max
-    maxArgs = ['toneDuration','presynapticNeurons']
+    maxArgs = ['toneDuration', 'presynapticNeurons']
     
-    maxList = ['toneDuration',int(parDict['toneDuration']*1000),'presynapticNeurons']
+    maxList = ['toneDuration', int(parDict['toneDuration']*1000), 'presynapticNeurons']
     
-    if isinstance(parDict['presynapticNeurons'],list):
+    if isinstance(parDict['presynapticNeurons'], list):
         for presNeuron in parDict['presynapticNeurons']:
             maxList.append(int(presNeuron))
-    elif isinstance(parDict['presynapticNeurons'],float):
+    elif isinstance(parDict['presynapticNeurons'], float):
         maxList.append(int(parDict['presynapticNeurons']))
     # construct the dictionary to initialize the neuron
-    neuronArgs = ['port','threshold','Cm', 'gL', 'EL','Delta','S','dead', 'a', 'b', 'tau_w', 
-                            'Ee', 'Ei','s_e', 's_i', 'tau_e', 'tau_i','external',
-                            'presynapticNeurons','presynapticTypes','maxMspTime']
+    neuronArgs = ['port', 'threshold', 'Cm', 'gL', 'EL', 'Delta', 'S', 'dead', 'a', 'b', 'tau_w',
+                            'Ee', 'Ei', 's_e', 's_i', 'tau_e', 'tau_i', 'external',
+                            'presynapticNeurons', 'presynapticTypes', 'maxMspTime']
     neuronDict = parDict
-    for key in ['maxMspTime','toneDuration','type']:
+    for key in ['maxMspTime', 'toneDuration', 'type']:
             neuronDict.pop(key)
     # reformat presynapticFrequencies as {freq:type,...}-dict
     presynapticNeurons = {}
-    for freq,type in zip(neuronDict['presynapticNeurons'],neuronDict.pop('presynapticTypes')):
-            presynapticNeurons.setdefault(freq,type)
+    for freq, type in zip(neuronDict['presynapticNeurons'], neuronDict.pop('presynapticTypes')):
+            presynapticNeurons.setdefault(freq, type)
     neuronDict['presynapticNeurons'] = presynapticNeurons 
 
-    return neuronDict,maxList
+    return neuronDict, maxList
 
 
 def fromMax(inlet, *inputList):
-    if isinstance(inputList[0],str):
+    if isinstance(inputList[0], str):
         parDict = osclist2Dict(inputList)
-        neuronDict,maxList = splitParDict(parDict)
+        neuronDict ,maxList = splitParDict(parDict)
         neuron.setParams(**neuronDict)
         maxObject.outlet(0, maxList)
     else:
