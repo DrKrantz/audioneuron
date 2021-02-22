@@ -205,7 +205,7 @@ class MainApp:
         self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
         self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
                                      frequencies=settings.presynapticFrequencies,
-                                     intervals=self.__detector.get_intervals,
+                                     intervals=self.__detector.get_intervals(),
                                      types=list(settings.presynapticNeurons.values()),
                                      width=settings.displaySize[0],
                                      height=settings.displaySize[1])
@@ -244,7 +244,7 @@ class MainApp:
                     valueHandler.update(xData=x_data, fftData=fft_data)
                     detected_freqs = self.__detector.detect(x_data, fft_data)
                     valueHandler.update(detectedFreqs=detected_freqs)
-                    has_fired, _ = self.__neuron.update(detected_freqs)
+                    has_fired = self.__neuron.update(detected_freqs)
 
                     self.__display.update()
                     if has_fired:

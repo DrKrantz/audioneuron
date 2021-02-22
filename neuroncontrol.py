@@ -162,7 +162,7 @@ class DestexheNeuron(object):
         valueHandler.update(hasSpiked = self._hasSpiked, v = self._v,
                             ge=factor*self._ge, gi=factor*self._gi,
                             w=factor*self._w)
-        return self._hasSpiked, self._v, factor*self._ge, factor*self._gi, factor*self._w
+        return self._hasSpiked
     
     def _updateMembrane(self, activeNeurons):
         '''
