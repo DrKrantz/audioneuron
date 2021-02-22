@@ -134,10 +134,6 @@ class Recorder:
         self.__refresh_interval = refresh_interval  # s
         self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
         self.__create_stream(input_name, channel_id)
-        self.__send_to_engine = None
-        
-    def set_engine_cb(self, engine_cb):
-        self.__send_to_engine = engine_cb
         
     def __create_stream(self, input_name, channel_id):
         self.__stream = p.open(format=ThreadRecorder.FORMAT,
@@ -167,19 +163,15 @@ class FrequencyDetector:
         self.__threshold = threshold
         self.__time_detected = np.zeros_like(frequencies)
         
-    @property
-    def intervals(self):
+    def get_intervals(self):
         return self.__frequencyIntervals
-
-    def detect(self, x_data, fft_data):
-        return self.__detect(x_data, fft_data)
     
     def __create_frequency_intervals(self, freqs, tol):
         lower = (1 - tol * (1-1/settings.NOTERATIO))
         upper = (1 + tol * (settings.NOTERATIO-1))
         [self.__frequencyIntervals.append([freq * lower, freq * upper]) for freq in freqs]
     
-    def __detect(self, x_data, fft_data):
+    def detect(self, x_data, fft_data):
         detected_freqs = len(self.__frequencies)*[True]
         for freq_id, (mn, mx) in enumerate(self.__frequencyIntervals):
             if time.time() - self.__time_detected[freq_id] > settings.toneDuration/1000.:
@@ -200,6 +192,7 @@ class FrequencyDetector:
 class MainApp:
     def __init__(self):
         pygame.init()
+        self.__fullscreen = False
         self.__recorder = Recorder(refresh_interval=0.1)
         self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
                                             tolerance=settings.frequencyTolerance,
@@ -212,26 +205,22 @@ class MainApp:
         self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
         self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
                                      frequencies=settings.presynapticFrequencies,
-                                     intervals=self.__detector.intervals,
+                                     intervals=self.__detector.get_intervals,
                                      types=list(settings.presynapticNeurons.values()),
                                      width=settings.displaySize[0],
                                      height=settings.displaySize[1])
 
         self.__player = SoundPlayer()
-
-        # self.__outputHandler = OutputHandler(self.__detector.intervals)
-        # self.__inputEngine.set_output_cb(self.__outputHandler.update)
-        self.__fullscreen = False
         
     def input(self, events):
         for event in events: 
             if event.type == pygame.locals.QUIT:
                 sys.exit(0)
             elif event.type == pygame.locals.MOUSEBUTTONDOWN:
-                self.__outputHandler.play()
+                self.__player.play()
             elif event.type == pygame.locals.KEYDOWN:
                 if event.dict['key'] == pygame.locals.K_p:
-                    self.__outputHandler.play()
+                    self.__player.play()
                 elif event.dict['key'] == pygame.locals.K_ESCAPE:
                     sys.exit(0)
                 elif event.dict['key'] == pygame.locals.K_f:
@@ -255,10 +244,10 @@ class MainApp:
                     valueHandler.update(xData=x_data, fftData=fft_data)
                     detected_freqs = self.__detector.detect(x_data, fft_data)
                     valueHandler.update(detectedFreqs=detected_freqs)
-                    self.__neuron.update()
+                    has_fired, _ = self.__neuron.update(detected_freqs)
 
                     self.__display.update()
-                    if valueHandler['hasSpiked']:
+                    if has_fired:
                         self.__player.play()
 
     def __fft(self, data):

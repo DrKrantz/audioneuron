@@ -155,14 +155,14 @@ class DestexheNeuron(object):
         output.close()
         self.__hasRecorded = True
          
-    def update(self):
-        activeNeurons, = np.nonzero(valueHandler['detectedFreqs'])
+    def update(self, detectedFrequencies):
+        activeNeurons, = np.nonzero(detectedFrequencies)
         self._updateMembrane(activeNeurons)
         factor = 1
         valueHandler.update(hasSpiked = self._hasSpiked, v = self._v,
                             ge=factor*self._ge, gi=factor*self._gi,
                             w=factor*self._w)
-        return self._hasSpiked,self._v, factor*self._ge, factor*self._gi, factor*self._w
+        return self._hasSpiked, self._v, factor*self._ge, factor*self._gi, factor*self._w
     
     def _updateMembrane(self, activeNeurons):
         '''
