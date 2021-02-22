@@ -241,13 +241,14 @@ class MainApp:
                 if not self.__player.get_busy():
                     data = self.__recorder.record()
                     x_data, fft_data = self.__fft(data)
-                    valueHandler.update(xData=x_data, fftData=fft_data)
                     detected_freqs = self.__detector.detect(x_data, fft_data)
-                    valueHandler.update(detectedFreqs=detected_freqs)
                     has_fired = self.__neuron.update(detected_freqs)
+
+                    valueHandler.update(xData=x_data, fftData=fft_data)
+                    valueHandler.update(detectedFreqs=detected_freqs)
                     valueHandler.update(**self.__neuron.get_values())
-                    
                     self.__display.update()
+
                     if has_fired:
                         self.__player.play()
 

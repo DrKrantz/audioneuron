@@ -159,7 +159,8 @@ class DestexheNeuron(object):
         return self._hasSpiked
 
     def get_values(self):
-        return dict(hasSpiked=self._hasSpiked, v = self._v,
+        return dict(hasSpiked=self._hasSpiked,
+                    v=self._v,
                     ge=self._ge, gi=self._gi,
                     w=self._w)
     
