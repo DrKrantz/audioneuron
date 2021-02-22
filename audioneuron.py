@@ -82,32 +82,6 @@ class SoundPlayer:
         return self.__channel.get_busy()
 
 
-class OutputHandler:
-    def __init__(self, intervals):
-        self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
-                                     frequencies=settings.presynapticFrequencies,
-                                     intervals=intervals,
-                                     types=list(settings.presynapticNeurons.values()),
-                                     width=settings.displaySize[0],
-                                     height=settings.displaySize[1])
-        
-        self.__player = SoundPlayer()
-            
-    def update(self):
-        self.__display.update()
-        if valueHandler['hasSpiked']:
-            self.__player.play()
-    
-    def play(self):
-        self.__player.play()
-
-    def is_sound_on(self):
-        return self.__player.get_busy()
-    
-    def toggle_fullscreen(self):
-        self.__display.toggleFullscreen()
-
-
 class ThreadRecorder(Thread):
     FORMAT = pyaudio.paInt16
     CHUNK = 1024
@@ -178,12 +152,11 @@ class Recorder:
         try:
             raw_data = self.__stream.read(self.__nread, exception_on_overflow=False)  # TODO catch proper exception
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
-            self.__send_to_engine(data)
         except OSError:
             print(('skipping audio', nbits))
             raw_data = self.__stream.read(self.__nread, exception_on_overflow=False)
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
-            self.__send_to_engine(data)
+        return data
 
 
 class FrequencyDetector:
@@ -198,7 +171,7 @@ class FrequencyDetector:
     def intervals(self):
         return self.__frequencyIntervals
 
-    def get(self, x_data, fft_data):
+    def detect(self, x_data, fft_data):
         return self.__detect(x_data, fft_data)
     
     def __create_frequency_intervals(self, freqs, tol):
@@ -222,60 +195,32 @@ class FrequencyDetector:
             idx, = np.nonzero(detected_freqs)
             print(('detected:', np.array(self.__frequencies)[idx]))
         return detected_freqs
-    
-
-class InputEngine:
-    __output_cb = None
-    __neuron = None
-
-    def __init__(self, recorder=Recorder(refresh_interval=0.1)):
-        self.attach()
-        self.__plot = plot
-        self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
-                                            tolerance=settings.frequencyTolerance,
-                                            threshold=settings.frequencyThreshold)
-        self.__recorder = recorder
-        self.__recorder.set_engine_cb(self.__on_audio_receive)
-        
-    @property
-    def intervals(self):
-        return self.__detector.intervals
-    
-    def set_output_cb(self, callback):
-        self.__output_cb = callback
-        
-    def update(self):
-        self.__recorder.record()
-        
-    def attach(self):
-        """connect a neuron to this Microphone, adding the freqs and the update Callback"""
-        self.__neuron = DestexheNeuron()
-        pars = settings.defaultPars(settings.neuronalType)
-        pars.update(settings.neuronParameters)
-        valueHandler.update(**pars)
-        self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
-        
-    def __on_audio_receive(self, data):
-        if len(data) > 1:
-            fft_data = np.fft.fft(data)/data.size
-            fft_data = np.abs(fft_data[list(range(int(data.size/2)))])
-            frqs = np.arange(data.size)/(data.size / float(SoundPlayer.RATE))
-            x_data = frqs[list(range(int(data.size/2)))]
-            valueHandler.update(xData=x_data, fftData=fft_data)
-            detected_freqs = self.__detector.get(x_data, fft_data)
-            valueHandler.update(detectedFreqs=detected_freqs)
-            self.__neuron.update()
-
-            ''' SEND NEXT LINE TO A SUBPROCESS / MULTIPROCESS ! '''
-            self.__output_cb()  # (xData,fftData,self.__neuron._v,vals)
 
 
 class MainApp:
     def __init__(self):
         pygame.init()
-        self.__inputEngine = InputEngine()
-        self.__outputHandler = OutputHandler(self.__inputEngine.intervals)
-        self.__inputEngine.set_output_cb(self.__outputHandler.update)
+        self.__recorder = Recorder(refresh_interval=0.1)
+        self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
+                                            tolerance=settings.frequencyTolerance,
+                                            threshold=settings.frequencyThreshold)
+
+        self.__neuron = DestexheNeuron()
+        pars = settings.defaultPars(settings.neuronalType)
+        pars.update(settings.neuronParameters)
+        valueHandler.update(**pars)
+        self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
+        self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
+                                     frequencies=settings.presynapticFrequencies,
+                                     intervals=self.__detector.intervals,
+                                     types=list(settings.presynapticNeurons.values()),
+                                     width=settings.displaySize[0],
+                                     height=settings.displaySize[1])
+
+        self.__player = SoundPlayer()
+
+        # self.__outputHandler = OutputHandler(self.__detector.intervals)
+        # self.__inputEngine.set_output_cb(self.__outputHandler.update)
         self.__fullscreen = False
         
     def input(self, events):
@@ -301,10 +246,27 @@ class MainApp:
         now = time.time()
         while True:
             self.input(pygame.event.get())
+            time.sleep(0.001)
             if time.time()-now >= upd_int:
                 now = time.time()
-                if not self.__outputHandler.is_sound_on():
-                    self.__inputEngine.update()
+                if not self.__player.get_busy():
+                    data = self.__recorder.record()
+                    x_data, fft_data = self.__fft(data)
+                    valueHandler.update(xData=x_data, fftData=fft_data)
+                    detected_freqs = self.__detector.detect(x_data, fft_data)
+                    valueHandler.update(detectedFreqs=detected_freqs)
+                    self.__neuron.update()
+
+                    self.__display.update()
+                    if valueHandler['hasSpiked']:
+                        self.__player.play()
+
+    def __fft(self, data):
+        fft_data = np.fft.fft(data) / data.size
+        fft_data = np.abs(fft_data[list(range(int(data.size / 2)))])
+        frqs = np.arange(data.size) / (data.size / float(SoundPlayer.RATE))
+        x_data = frqs[list(range(int(data.size / 2)))]
+        return x_data, fft_data
 
 
 if __name__ == '__main__':
@@ -315,6 +277,3 @@ if __name__ == '__main__':
             plot = True
     app = MainApp()
     app.run()
-    
-#    input = InputEngine(plot=plot)
-#    raw_input('los?')
