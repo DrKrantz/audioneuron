@@ -158,11 +158,8 @@ class DestexheNeuron(object):
         self._updateMembrane(activeNeurons)
         return self._hasSpiked
 
-    def get_values(self):
-        return dict(hasSpiked=self._hasSpiked,
-                    v=self._v,
-                    ge=self._ge, gi=self._gi,
-                    w=self._w)
+    def get_value(self, value):
+        return getattr(self, "_" + value)
     
     def _updateMembrane(self, activeNeurons):
         '''

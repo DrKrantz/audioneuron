@@ -93,7 +93,8 @@ class GraphDisplay(pygame.Surface):
         self.fill(self.bkgColor)
         pxCoords = self._coord2Px(x,y)
         pygame.draw.aalines(self,colors['membrane'],False,pxCoords)
-                
+
+
 class FFTDisplay(GraphDisplay):
     def __init__(self,types=None,intervals=None,**kwargs):
         super(FFTDisplay,self).__init__(**kwargs)
@@ -102,9 +103,9 @@ class FFTDisplay(GraphDisplay):
         self.__detected = np.zeros(len(intervals))
         self.__createFrequencySurf()
         
-    def plot(self,x,y):
+    def plot(self, x, y, detected_frequencies):
         self.fill(self.bkgColor)
-        for k,val in enumerate(valueHandler['detectedFreqs']):
+        for k, val in enumerate(detected_frequencies):
             rect = self.__freqRects[k][0]
             col = pygame.Color('red') if val else self.__freqRects[k][1] 
             pygame.draw.rect(self,col,rect) 
@@ -115,15 +116,23 @@ class FFTDisplay(GraphDisplay):
     def __createFrequencySurf(self):
         self.__freqRects = []
         self.__freqCols = []
-        for k,intv in enumerate(self.__intervals):
-            edgeCoords = self._coord2Px(np.log(intv),(self.ylim[0],self.ylim[1]))
-            w=np.log(np.abs(np.diff(edgeCoords[0])))
-            self.__freqRects.append( (pygame.Rect(edgeCoords[0][0],0,w,self.get_height()),
-                                      colors[self.__types[k]]) )
+        for k, intv in enumerate(self.__intervals):
+            edgeCoords = self._coord2Px(np.log(intv), (self.ylim[0], self.ylim[1]))
+            w = np.log(np.abs(np.diff(edgeCoords[0])))[0]
+            print('-----', edgeCoords[0][0], 0, w, self.get_height())
+            rect = pygame.Rect(edgeCoords[0][0], 0, w, self.get_height())
+            self.__freqRects.append(
+                (
+                    rect,
+                    colors[self.__types[k]]
+                )
+            )
+
 
 class FullDisplay:
     SPIKE_COL = [255,0,0]
     SIZERATIO = [.3,.5,.2]
+
     def __init__(self,playedFrequency=None,frequencies=None,types=None,intervals=None,
                  startAudioCb=None,width=400,height=800):
         self.width = width
@@ -173,22 +182,19 @@ class FullDisplay:
 #    def setSpiked(self,spiked):
 #        self.__hasSpiked = spiked
 
-    
-    def update(self):
-        x = valueHandler['xData']
-        y = valueHandler['fftData']
-        self.fftDisplay.plot(np.log(x[x>0]),y[x>0])
-        self.membraneDisplay.addValue(valueHandler['v'])
-        self.ballDisplay.show(valueHandler['v'])
-        self.draw()
+    def update(self, has_fired, x=None, y=None, v=None, detected_freqs=None):
+        self.fftDisplay.plot(np.log(x[x > 0]), y[x > 0], detected_freqs)
+        self.membraneDisplay.addValue(v)
+        self.ballDisplay.show(v)
+        self.draw(has_fired)
         
-    def draw(self):
-        if valueHandler['hasSpiked']:
+    def draw(self, has_fired):
+        if has_fired:
             self.display.fill(colors[neuronalType])
         else:
-            self.display.blit(self.fftDisplay,self.fftRect)
-            self.display.blit(self.ballDisplay,self.ballRect)
-            self.display.blit(self.membraneDisplay,self.membraneRect)
+            self.display.blit(self.fftDisplay, self.fftRect)
+            self.display.blit(self.ballDisplay, self.ballRect)
+            self.display.blit(self.membraneDisplay, self.membraneRect)
         pygame.display.flip()
         
     def toggleFullscreen(self):
@@ -289,12 +295,12 @@ if __name__=='__main__':
     screen.update()
 #    display.blit(surf, my_rect.topleft)
 #    pygame.display.update()
-    x = np.linspace(-1,1,20)
+    xx = np.linspace(-1,1,20)
     for k in range(100):
         time.sleep(.01)
-        y = 2*np.random.rand(20)-1
+        yy = 2*np.random.rand(20)-1
         now = time.time()
-        surface.plot(x,y)
+        surface.plot(xx,yy)
         screen.update()
     #    display.blit(surf, my_rect.topleft)
     #    pygame.display.update()

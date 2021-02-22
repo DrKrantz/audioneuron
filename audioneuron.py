@@ -244,10 +244,8 @@ class MainApp:
                     detected_freqs = self.__detector.detect(x_data, fft_data)
                     has_fired = self.__neuron.update(detected_freqs)
 
-                    valueHandler.update(xData=x_data, fftData=fft_data)
-                    valueHandler.update(detectedFreqs=detected_freqs)
-                    valueHandler.update(**self.__neuron.get_values())
-                    self.__display.update()
+                    draw_values = dict(x=x_data, y=fft_data, v=self.__neuron.get_value('v'), detected_freqs=detected_freqs)
+                    self.__display.update(has_fired, **draw_values)
 
                     if has_fired:
                         self.__player.play()
