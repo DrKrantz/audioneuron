@@ -80,64 +80,21 @@ class SoundPlayer:
         return self.__channel.get_busy()
 
 
-class ThreadRecorder(Thread):
+class Recorder:
     FORMAT = pyaudio.paInt16
     CHUNK = 1024
-    SWIDTH = pyaudio.get_sample_size(FORMAT)
-
-    def __init__(self, input_name='Built-in Microphone', channel_id=1, refresh_interval=0.05):
-        super(ThreadRecorder, self).__init__()
-        self.__refresh_interval = refresh_interval  # s
-        self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
-        self.__create_stream(input_name, channel_id)
-        self.__is_recording = True
-        self.__send_to_engine = None
-        
-    def __create_stream(self, device_name, channel_id):
-        index = get_index_by_name(device_name)
-        if index >= 0:
-            self.__stream = p.open(format=self.FORMAT,
-                                   channels=channel_id,
-                                   rate=SoundPlayer.RATE,
-                                   input=True,
-                                   input_device_index=index,
-                                   frames_per_buffer=self.CHUNK)
-            print(('SETUP input:', device_name, 'connected'))
-        else:
-            ''' SEND TO STOUT? '''
-            print(('no such input device', device_name))
-    
-    def set_engine_cb(self, engine_cb):
-        self.__send_to_engine = engine_cb
-    
-    def run(self):  # has to be named 'run', because Thread.start() calls 'run'!!!
-        while self.__is_recording:
-            data = None
-            try:
-                raw_data = self.__stream.read(self.__nread)
-                data = np.array(wave.struct.unpack("%dh" % (len(raw_data)/self.SWIDTH), raw_data))
-            except IOError:
-                pass
-            if data is not None:
-                self.__send_to_engine(data)
-                
-    def stop(self):
-        self.__is_recording = False
-
-
-class Recorder:
-    SWIDTH = pyaudio.get_sample_size(ThreadRecorder.FORMAT)
+    SWIDTH = pyaudio.get_sample_size(pyaudio.paInt16)
 
     def __init__(self, input_name='Microphone', channel_id=1):
         self.__create_stream(input_name, channel_id)
         
     def __create_stream(self, input_name, channel_id):
-        self.__stream = p.open(format=ThreadRecorder.FORMAT,
+        self.__stream = p.open(format=Recorder.FORMAT,
                                channels=channel_id,
                                rate=settings.sampling_rate,
                                input=True,
                                input_device_index=get_index_by_name(input_name),
-                               frames_per_buffer=ThreadRecorder.CHUNK)
+                               frames_per_buffer=Recorder.CHUNK)
         
     def record(self):
         nbits = self.__stream.get_read_available()
@@ -149,40 +106,6 @@ class Recorder:
             raw_data = self.__stream.read(settings.recording_chunk_size, exception_on_overflow=False)
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
         return data
-
-
-class FrequencyDetector:
-    def __init__(self, frequencies=None, threshold=150, tolerance=.1):
-        self.__frequencies = frequencies 
-        self.__frequencyIntervals = []
-        self.__create_frequency_intervals(frequencies, tolerance)
-        self.__threshold = threshold
-        self.__time_detected = np.zeros_like(frequencies)
-        
-    def get_intervals(self):
-        return self.__frequencyIntervals
-    
-    def __create_frequency_intervals(self, freqs, tol):
-        lower = (1 - tol * (1-1/settings.NOTERATIO))
-        upper = (1 + tol * (settings.NOTERATIO-1))
-        [self.__frequencyIntervals.append([freq * lower, freq * upper]) for freq in freqs]
-    
-    def detect(self, x_data, fft_data):
-        detected_freqs = len(self.__frequencies)*[True]
-        for freq_id, (mn, mx) in enumerate(self.__frequencyIntervals):
-            if time.time() - self.__time_detected[freq_id] > settings.toneDuration/1000.:
-                idx, = np.nonzero((x_data >= mn) & (x_data <= mx))
-                volume = np.mean(fft_data[idx])
-                if volume > self.__threshold:
-                    self.__time_detected[freq_id] = time.time()
-                else:
-                    detected_freqs[freq_id] = False
-            else:
-                detected_freqs[freq_id] = False
-        if np.any(detected_freqs):
-            idx, = np.nonzero(detected_freqs)
-            print(('detected:', np.array(self.__frequencies)[idx]))
-        return detected_freqs
 
 
 class AudioSynapse:
@@ -256,6 +179,12 @@ class SynapticAudioTree:
         return intervals
 
 
+def fft(data):
+    fft_data = np.fft.fft(data) / data.size
+    fft_data = np.abs(fft_data[list(range(int(data.size / 2)))])
+    return fft_data
+
+
 class MainApp:
     def __init__(self):
         pygame.init()
@@ -308,7 +237,7 @@ class MainApp:
                 now = time.time()
                 if not self.__player.get_busy():
                     data = self.__recorder.record()
-                    fft_data = self.__fft(data)
+                    fft_data = fft(data)
                     detected_freqs = self.__detector.detect(fft_data)
                     has_fired = self.__neuron.update(detected_freqs)
 
@@ -319,11 +248,6 @@ class MainApp:
                     if has_fired:
                         self.__player.play()
 
-    @staticmethod
-    def __fft(data):
-        fft_data = np.fft.fft(data) / data.size
-        fft_data = np.abs(fft_data[list(range(int(data.size / 2)))])
-        return fft_data
 
 
 if __name__ == '__main__':
