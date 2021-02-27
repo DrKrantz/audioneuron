@@ -12,6 +12,7 @@ from neuroncontrol import DestexheNeuron
 import settings
 from pygamedisplay import FullDisplay
 
+RECORD_CHUNK_SIZE = 4410
 
 valueHandler = valuehandler.ValueHandler()
 p = pyaudio.PyAudio()
@@ -130,9 +131,7 @@ class ThreadRecorder(Thread):
 class Recorder:
     SWIDTH = pyaudio.get_sample_size(ThreadRecorder.FORMAT)
 
-    def __init__(self, input_name='Microphone', channel_id=1, refresh_interval=0.05):
-        self.__refresh_interval = refresh_interval  # s
-        self.__nread = int(self.__refresh_interval * SoundPlayer.RATE)
+    def __init__(self, input_name='Microphone', channel_id=1):
         self.__create_stream(input_name, channel_id)
         
     def __create_stream(self, input_name, channel_id):
@@ -146,11 +145,11 @@ class Recorder:
     def record(self):
         nbits = self.__stream.get_read_available()
         try:
-            raw_data = self.__stream.read(self.__nread, exception_on_overflow=False)  # TODO catch proper exception
+            raw_data = self.__stream.read(RECORD_CHUNK_SIZE, exception_on_overflow=False)  # TODO catch proper exception
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
         except OSError:
             print(('skipping audio', nbits))
-            raw_data = self.__stream.read(self.__nread, exception_on_overflow=False)
+            raw_data = self.__stream.read(RECORD_CHUNK_SIZE, exception_on_overflow=False)
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
         return data
 
@@ -189,24 +188,85 @@ class FrequencyDetector:
         return detected_freqs
 
 
+class AudioSynapse:
+    def __init__(self, frequency: float, threshold=150, tolerance=0.1):
+        self.frequency = frequency
+        self.__threshold = threshold
+        self.lower_freq = self.upper_freq = 0
+        self.__sum_idx = self.__create_indices(tolerance)
+
+    def __create_indices(self, tolerance: float) -> list:
+        """
+        collect the indices that are in the tolerance range around the frequency
+        :param tolerance:
+        :return:
+        """
+        self.lower_freq = (1 - tolerance * (1 - 1 / settings.NOTERATIO)) * self.frequency
+        self.upper_freq = (1 + tolerance * (settings.NOTERATIO - 1)) * self.frequency
+
+        frqs = np.arange(RECORD_CHUNK_SIZE) / (RECORD_CHUNK_SIZE / float(SoundPlayer.RATE))
+        x_data = frqs[list(range(int(RECORD_CHUNK_SIZE / 2)))]
+
+        sum_idx = []
+        for idx, freq in enumerate(x_data):
+            if self.lower_freq <= freq <= self.upper_freq:
+                sum_idx.append(idx)
+            elif freq > self.upper_freq:
+                break
+        return sum_idx
+
+    def detect(self, current_signal: list) -> bool:
+        """
+        returns True if the AVERAGE signal in the frequency band of the synapse is above the threshold
+        :param current_signal:
+        :return:
+        """
+        sum = 0
+        for idx in self.__sum_idx:
+            sum += current_signal[idx]
+        return (sum / len(self.__sum_idx)) >= self.__threshold
+
+
+class SynapticAudioTree:
+    def __init__(self, frequencies: list, threshold=150, tolerance=0.1):
+        self.__tolerance = tolerance
+        self.__synapses = []
+        [self.__synapses.append(AudioSynapse(frequency, threshold, tolerance)) for frequency in frequencies]
+
+    def detect(self, signal: list) -> list:
+        synapses_active = []
+        [synapses_active.append(synapse.detect(signal)) for synapse in self.__synapses]
+        return synapses_active
+
+    def get_intervals(self) -> list:
+        """
+        Return the frequency bands that are detected from the synapses
+        :return:
+        """
+        intervals = []
+        [intervals.append([synapse.lower_freq, synapse.upper_freq]) for synapse in self.__synapses]
+        return intervals
+
+
 class MainApp:
     def __init__(self):
         pygame.init()
         self.__fullscreen = False
-        self.__recorder = Recorder(refresh_interval=0.1)
+        self.__recorder = Recorder()
         self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
                                             tolerance=settings.frequencyTolerance,
                                             threshold=settings.frequencyThreshold)
 
         self.__neuron = DestexheNeuron()
         pars = settings.defaultPars(settings.neuronalType)
-        pars.update(settings.neuronParameters)
-        valueHandler.update(**pars)
         self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
+
         self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
                                      frequencies=settings.presynapticFrequencies,
                                      intervals=self.__detector.get_intervals(),
                                      types=list(settings.presynapticNeurons.values()),
+                                     threshold=pars['threshold'],
+                                     resting_potential=pars['EL'],
                                      width=settings.displaySize[0],
                                      height=settings.displaySize[1])
 
@@ -244,13 +304,15 @@ class MainApp:
                     detected_freqs = self.__detector.detect(x_data, fft_data)
                     has_fired = self.__neuron.update(detected_freqs)
 
-                    draw_values = dict(x=x_data, y=fft_data, v=self.__neuron.get_value('v'), detected_freqs=detected_freqs)
+                    draw_values = dict(x=x_data, y=fft_data, v=self.__neuron.get_value('v'),
+                                       detected_freqs=detected_freqs)
                     self.__display.update(has_fired, **draw_values)
 
                     if has_fired:
                         self.__player.play()
 
-    def __fft(self, data):
+    @staticmethod
+    def __fft(data):
         fft_data = np.fft.fft(data) / data.size
         fft_data = np.abs(fft_data[list(range(int(data.size / 2)))])
         frqs = np.arange(data.size) / (data.size / float(SoundPlayer.RATE))

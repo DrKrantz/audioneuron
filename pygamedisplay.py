@@ -6,7 +6,7 @@ import numpy as np
 from threading import Thread
 import valuehandler
 
-from settings import colors, neuronParameters, neuronalType, neuronId, fftDisplayXLimits, defaultPars
+from settings import colors, neuronalType, neuronId, fftDisplayXLimits
     
 valueHandler = valuehandler.ValueHandler()
 
@@ -134,7 +134,7 @@ class FullDisplay:
     SIZERATIO = [.3,.5,.2]
 
     def __init__(self,playedFrequency=None,frequencies=None,types=None,intervals=None,
-                 startAudioCb=None,width=400,height=800):
+                 startAudioCb=None, threshold=0, resting_potential=0, width=400,height=800):
         self.width = width
         self.height = height
         self.display = pygame.display.set_mode((self.width,self.height))
@@ -144,27 +144,26 @@ class FullDisplay:
 #        self.display.blit(self.name,self.nameRect)
         
         self.fftRect = pygame.Rect(0,0,self.width,self.height*self.SIZERATIO[0])
-        self.fftDisplay = FFTDisplay(types,intervals,
-                                    size=(self.width,self.height*self.SIZERATIO[0]),
-                                    xlim=np.log(fftDisplayXLimits),ylim=[0,300])
+        self.fftDisplay = FFTDisplay(types, intervals,
+                                     size=(self.width, self.height*self.SIZERATIO[0]),
+                                     xlim=np.log(fftDisplayXLimits), ylim=[0, 300])
         self.display.blit(self.fftDisplay,self.fftRect)
+
+        self.ballRect = pygame.Rect(0, self.height*self.SIZERATIO[0],
+                                    self.width, self.height*self.SIZERATIO[1],
+                                    limits=[-80e-3, threshold])
+        self.ballDisplay = BallDisplay(screenSize=int(self.height*self.SIZERATIO[1]),
+                                       imageSize=int(self.height*(self.SIZERATIO[1]-0.05)),
+                                       limits=[-80e-3, threshold],
+                                       threshold=threshold,
+                                       EL=resting_potential)
+        self.display.blit(self.ballDisplay, self.ballRect)
         
-        
-        self.ballRect = pygame.Rect(0,self.height*self.SIZERATIO[0],
-                                    self.width,self.height*self.SIZERATIO[1],
-                                    limits = [-80e-3,valueHandler['threshold']])
-        self.ballDisplay = BallDisplay(screenSize = self.height*self.SIZERATIO[1],
-                                       imageSize = self.height*(self.SIZERATIO[1]-0.05),
-                                       limits = [-80e-3,valueHandler['threshold']],
-                                       threshold = valueHandler['threshold'],
-                                       EL=valueHandler['EL'])
-        self.display.blit(self.ballDisplay,self.ballRect)
-        
-        self.membraneRect = pygame.Rect(0,self.height*(1-self.SIZERATIO[2]),
-                                    self.width,self.height*self.SIZERATIO[2]) 
-        self.membraneDisplay = MembraneDisplay(size=(self.width,self.height*self.SIZERATIO[2]),
-                                    ylim=[-80e-3,valueHandler['threshold']*.95])
-        self.display.blit(self.membraneDisplay,self.membraneRect)
+        self.membraneRect = pygame.Rect(0, self.height*(1-self.SIZERATIO[2]),
+                                        self.width, self.height*self.SIZERATIO[2])
+        self.membraneDisplay = MembraneDisplay(size=(self.width, self.height*self.SIZERATIO[2]),
+                                               ylim=[-80e-3, threshold*.95])
+        self.display.blit(self.membraneDisplay, self.membraneRect)
         
         self.__hasSpiked = False
         self.__startAudio = None
@@ -235,7 +234,6 @@ class FFTHandler(object):
     def __fromNetwork(self,addr, tags, data, source):
         print(data)
         self.update()
- 
 
 
 class Screen:
@@ -250,7 +248,8 @@ class Screen:
     def update(self):
         self.display.blit(self.surface, self.rect.topleft)
         pygame.display.update()
-        
+
+
 class Display(Thread):
     def __init__(self,surfPos,screenSize,**kwargs):
         super(Display,self).__init__()
@@ -284,7 +283,8 @@ class Display(Thread):
         print('plotting')
         self.graphDisplay.plotFitted(self.xData,self.yData)
         self.screen.update()
-        
+
+
 if __name__=='__main__':
     surface = GraphDisplay((300,300))
     screen = Screen(surface,(30,30),(400, 400))
