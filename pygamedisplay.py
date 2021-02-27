@@ -6,7 +6,7 @@ import numpy as np
 from threading import Thread
 import valuehandler
 
-from settings import colors, neuronalType, neuronId, fftDisplayXLimits
+from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recording_chunk_size, sampling_rate
     
 valueHandler = valuehandler.ValueHandler()
 
@@ -168,6 +168,9 @@ class FullDisplay:
         self.__hasSpiked = False
         self.__startAudio = None
 
+        frqs = np.arange(recording_chunk_size) / (recording_chunk_size/float(sampling_rate))
+        self.__x_data = frqs[list(range(int(recording_chunk_size / 2)))]
+
     def setStartAudioCb(self,pyfunc):
         self.__startAudio = pyfunc
         
@@ -181,8 +184,8 @@ class FullDisplay:
 #    def setSpiked(self,spiked):
 #        self.__hasSpiked = spiked
 
-    def update(self, has_fired, x=None, y=None, v=None, detected_freqs=None):
-        self.fftDisplay.plot(np.log(x[x > 0]), y[x > 0], detected_freqs)
+    def update(self, has_fired, y=None, v=None, detected_freqs=None):
+        self.fftDisplay.plot(np.log(self.__x_data[self.__x_data > 0]), y[self.__x_data > 0], detected_freqs)
         self.membraneDisplay.addValue(v)
         self.ballDisplay.show(v)
         self.draw(has_fired)

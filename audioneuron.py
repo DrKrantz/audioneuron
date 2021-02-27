@@ -12,8 +12,6 @@ from neuroncontrol import DestexheNeuron
 import settings
 from pygamedisplay import FullDisplay
 
-RECORD_CHUNK_SIZE = 4410
-
 valueHandler = valuehandler.ValueHandler()
 p = pyaudio.PyAudio()
 
@@ -30,7 +28,6 @@ def get_index_by_name(input_name):
 
 
 class SoundPlayer:
-    RATE = 44100
     CHANNELS = 2
 
     def __init__(self):
@@ -39,7 +36,7 @@ class SoundPlayer:
         self.__channel = self.__sound.play()
     
     def __create_sound(self):
-        num_samples = int(self.RATE*settings.toneDuration/1000.)
+        num_samples = int(settings.sampling_rate*settings.toneDuration/1000.)
         bits = 16
         twopi = 2*np.pi
 
@@ -47,20 +44,20 @@ class SoundPlayer:
         pygame.init()
 
         max_sample = 2 ** (bits - 1) - 1
-        sine = max_sample * np.sin(np.arange(num_samples)*twopi*settings.neuronalFrequency/self.RATE)
+        sine = max_sample * np.sin(np.arange(num_samples)*twopi*settings.neuronalFrequency/settings.sampling_rate)
 
         #  add an- u- abschwellen
         if settings.dampDuration < settings.toneDuration / 2.:
-            num_damp_samp = int(self.RATE * settings.dampDuration)
+            num_damp_samp = int(settings.sampling_rate * settings.dampDuration)
         else:
             print('WARNING! dampDuration>toneDuration/2!!! Using toneDuration/2')
-            num_damp_samp = int(self.RATE * settings.toneDuration / 2.)  # the 2 is the stereo
+            num_damp_samp = int(settings.sampling_rate * settings.toneDuration / 2.)  # the 2 is the stereo
         damp_vec = np.linspace(0, 1, num_damp_samp)
         sine[0:num_damp_samp] *= damp_vec
         sine[len(sine) - num_damp_samp::] *= damp_vec[::-1]
 
         #  add ending silence
-        sine = np.concatenate([sine, np.zeros(int(self.RATE * settings.endSilence))])
+        sine = np.concatenate([sine, np.zeros(int(settings.sampling_rate * settings.endSilence))])
 
         #  generate signal for channels
         signal = np.array((sine, sine))  # default to LR
@@ -137,7 +134,7 @@ class Recorder:
     def __create_stream(self, input_name, channel_id):
         self.__stream = p.open(format=ThreadRecorder.FORMAT,
                                channels=channel_id,
-                               rate=SoundPlayer.RATE,
+                               rate=settings.sampling_rate,
                                input=True,
                                input_device_index=get_index_by_name(input_name),
                                frames_per_buffer=ThreadRecorder.CHUNK)
@@ -145,11 +142,11 @@ class Recorder:
     def record(self):
         nbits = self.__stream.get_read_available()
         try:
-            raw_data = self.__stream.read(RECORD_CHUNK_SIZE, exception_on_overflow=False)  # TODO catch proper exception
+            raw_data = self.__stream.read(settings.recording_chunk_size, exception_on_overflow=False)  # TODO catch proper exception
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
         except OSError:
             print(('skipping audio', nbits))
-            raw_data = self.__stream.read(RECORD_CHUNK_SIZE, exception_on_overflow=False)
+            raw_data = self.__stream.read(settings.recording_chunk_size, exception_on_overflow=False)
             data = np.array(wave.struct.unpack("%dh" % (len(raw_data) / self.SWIDTH), raw_data))
         return data
 
@@ -189,10 +186,11 @@ class FrequencyDetector:
 
 
 class AudioSynapse:
-    def __init__(self, frequency: float, threshold=150, tolerance=0.1):
+    def __init__(self, frequency: float, tolerance=0.1, threshold=150):
         self.frequency = frequency
         self.__threshold = threshold
-        self.lower_freq = self.upper_freq = 0
+        self.lower_freq = 0
+        self.upper_freq = 0
         self.__sum_idx = self.__create_indices(tolerance)
 
     def __create_indices(self, tolerance: float) -> list:
@@ -204,8 +202,8 @@ class AudioSynapse:
         self.lower_freq = (1 - tolerance * (1 - 1 / settings.NOTERATIO)) * self.frequency
         self.upper_freq = (1 + tolerance * (settings.NOTERATIO - 1)) * self.frequency
 
-        frqs = np.arange(RECORD_CHUNK_SIZE) / (RECORD_CHUNK_SIZE / float(SoundPlayer.RATE))
-        x_data = frqs[list(range(int(RECORD_CHUNK_SIZE / 2)))]
+        frqs = np.arange(settings.recording_chunk_size) / (settings.recording_chunk_size/float(settings.sampling_rate))
+        x_data = frqs[list(range(int(settings.recording_chunk_size / 2)))]
 
         sum_idx = []
         for idx, freq in enumerate(x_data):
@@ -224,14 +222,19 @@ class AudioSynapse:
         sum = 0
         for idx in self.__sum_idx:
             sum += current_signal[idx]
-        return (sum / len(self.__sum_idx)) >= self.__threshold
+
+        if (sum / len(self.__sum_idx)) >= self.__threshold:
+            print('detected:', self.frequency)
+            return True
+        else:
+            return False
 
 
 class SynapticAudioTree:
-    def __init__(self, frequencies: list, threshold=150, tolerance=0.1):
+    def __init__(self, frequencies: list, tolerance=0.1, threshold=150):
         self.__tolerance = tolerance
         self.__synapses = []
-        [self.__synapses.append(AudioSynapse(frequency, threshold, tolerance)) for frequency in frequencies]
+        [self.__synapses.append(AudioSynapse(frequency, tolerance, threshold)) for frequency in frequencies]
 
     def detect(self, signal: list) -> list:
         synapses_active = []
@@ -253,9 +256,9 @@ class MainApp:
         pygame.init()
         self.__fullscreen = False
         self.__recorder = Recorder()
-        self.__detector = FrequencyDetector(frequencies=settings.presynapticFrequencies,
-                                            tolerance=settings.frequencyTolerance,
-                                            threshold=settings.frequencyThreshold)
+        self.__detector = SynapticAudioTree(settings.presynapticFrequencies,
+                                            settings.frequencyTolerance,
+                                            settings.frequencyThreshold)
 
         self.__neuron = DestexheNeuron()
         pars = settings.defaultPars(settings.neuronalType)
@@ -300,11 +303,11 @@ class MainApp:
                 now = time.time()
                 if not self.__player.get_busy():
                     data = self.__recorder.record()
-                    x_data, fft_data = self.__fft(data)
-                    detected_freqs = self.__detector.detect(x_data, fft_data)
+                    fft_data = self.__fft(data)
+                    detected_freqs = self.__detector.detect(fft_data)
                     has_fired = self.__neuron.update(detected_freqs)
 
-                    draw_values = dict(x=x_data, y=fft_data, v=self.__neuron.get_value('v'),
+                    draw_values = dict(y=fft_data, v=self.__neuron.get_value('v'),
                                        detected_freqs=detected_freqs)
                     self.__display.update(has_fired, **draw_values)
 
@@ -315,9 +318,7 @@ class MainApp:
     def __fft(data):
         fft_data = np.fft.fft(data) / data.size
         fft_data = np.abs(fft_data[list(range(int(data.size / 2)))])
-        frqs = np.arange(data.size) / (data.size / float(SoundPlayer.RATE))
-        x_data = frqs[list(range(int(data.size / 2)))]
-        return x_data, fft_data
+        return fft_data
 
 
 if __name__ == '__main__':

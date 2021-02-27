@@ -7,6 +7,8 @@ presynapticNeurons = {0: 'E', 1: 'E', 2: 'I', 3: 'E', 4: 'E'}
 
 
 # Generic sound parameters
+recording_chunk_size = 4410
+sampling_rate = 44100
 frequencyThreshold = 150
 channel = 'LR'  # or 'R' or 'LR'
 toneDuration = 500  # ms
