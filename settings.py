@@ -1,25 +1,27 @@
+# neuron specific parameters
 neuronId = 6
 neuronalFrequency = 880
 neuronalType = 'I'
-toneDuration = 500  # ms
-frequencyThreshold = 150
-channel = 'LR'  # or 'R' or 'LR'
 presynapticFrequencies = 1760, 1661, 959, 1863, 1209
 presynapticNeurons = {0: 'E', 1: 'E', 2: 'I', 3: 'E', 4: 'E'}
 
+
+# Generic sound parameters
+frequencyThreshold = 150
+channel = 'LR'  # or 'R' or 'LR'
+toneDuration = 500  # ms
 frequencyTolerance = 0.1  # in fractions of half-notes
-fftDisplayXLimits = [300, 5000]
-displaySize = (350, 700)
 dampDuration = 0.01  # time for linear in/decrease of sine, in seconds
 endSilence = 0.005  # time for silence after the sine, in seconds
 NOTERATIO = 2**(1./12)
 
+# Display parameters
+displaySize = (350, 700)
+fftDisplayXLimits = [300, 5000]
 colors = {'E': [0, 0, 255], 'I': [255, 255, 0], 'fft': [100, 100, 100], 'membrane': [100, 100, 100]}
 
-neuronParameters = {'threshold': -50e-3}
 
-
-def defaultPars(type='E'):
+def defaultPars(neuron_type='E'):
     pars = dict()
     # parameters of the neuron model
     pars['threshold'] = -50e-3  # firing threshold of individual neurons, V
@@ -36,8 +38,8 @@ def defaultPars(type='E'):
     b_e = 0
     b_i = 0
 
-    pars['a'] = a_e if type == 'E' else a_i 
-    pars['b'] = b_e if type == 'E' else b_i 
+    pars['a'] = a_e if neuron_type == 'E' else a_i
+    pars['b'] = b_e if neuron_type == 'E' else b_i
     
     # Parameters of Synapses 
     pars['s_e'] = 6e-9  # 10increment of excitatory synaptic conductance per spike, S,
