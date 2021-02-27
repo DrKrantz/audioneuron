@@ -192,6 +192,7 @@ class AudioSynapse:
         self.lower_freq = 0
         self.upper_freq = 0
         self.__sum_idx = self.__create_indices(tolerance)
+        self.__time_detected = 0
 
     def __create_indices(self, tolerance: float) -> list:
         """
@@ -219,15 +220,19 @@ class AudioSynapse:
         :param current_signal:
         :return:
         """
-        sum = 0
-        for idx in self.__sum_idx:
-            sum += current_signal[idx]
-
-        if (sum / len(self.__sum_idx)) >= self.__threshold:
-            print('detected:', self.frequency)
-            return True
-        else:
+        if time.time() - self.__time_detected < settings.toneDuration/1000.:
             return False
+
+        volume = 0
+        for idx in self.__sum_idx:
+            volume += current_signal[idx]
+
+        if (volume / len(self.__sum_idx)) < self.__threshold:
+            return False
+
+        self.__time_detected = time.time()
+        print('detected:', self.frequency)
+        return True
 
 
 class SynapticAudioTree:
