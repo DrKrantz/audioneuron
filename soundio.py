@@ -5,6 +5,7 @@ import numpy as np
 import settings
 
 p = pyaudio.PyAudio()
+pygame.init()
 
 
 def fft(data):

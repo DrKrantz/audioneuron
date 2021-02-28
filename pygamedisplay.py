@@ -1,13 +1,14 @@
+import sys
 import pygame
 import time
 from pygame.locals import *
 import numpy as np
 from threading import Thread
-import valuehandler
 
-from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recording_chunk_size, sampling_rate
-    
-valueHandler = valuehandler.ValueHandler()
+from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recording_chunk_size, sampling_rate, displaySize
+
+
+pygame.init()
 
 
 class BallDisplay(pygame.Surface):
@@ -132,11 +133,16 @@ class FFTDisplay(GraphDisplay):
 class FullDisplay:
     SPIKE_COL = [255, 0, 0]
     SIZERATIO = [.3, .5, .2]
+    COMMAND_PLAY = 0
 
     def __init__(self, playedFrequency=None, frequencies=None, types=None, intervals=None,
                  startAudioCb=None, threshold=0, resting_potential=0, width=400, height=800):
         self.width = width
         self.height = height
+        self.__hasSpiked = False
+        self.__startAudio = None
+        self.__fullscreen = False
+
         self.display = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption('Neuron '+str(neuronId)+' @ '+str(playedFrequency)+'Hz')
         
@@ -161,9 +167,6 @@ class FullDisplay:
         self.membraneDisplay = MembraneDisplay(size=(self.width, self.height*self.SIZERATIO[2]),
                                                ylim=[-80e-3, threshold*.95])
         self.display.blit(self.membraneDisplay, self.membraneRect)
-        
-        self.__hasSpiked = False
-        self.__startAudio = None
 
         frqs = np.arange(recording_chunk_size) / (recording_chunk_size/float(sampling_rate))
         self.__x_data = frqs[list(range(int(recording_chunk_size / 2)))]
@@ -195,6 +198,24 @@ class FullDisplay:
             self.display.blit(self.ballDisplay, self.ballRect)
             self.display.blit(self.membraneDisplay, self.membraneRect)
         pygame.display.flip()
+
+    def get_keyboard_input(self):
+        for event in pygame.event.get():
+            if event.type == pygame.locals.QUIT:
+                sys.exit(0)
+            elif event.type == pygame.locals.MOUSEBUTTONDOWN:
+                return FullDisplay.COMMAND_PLAY
+            elif event.type == pygame.locals.KEYDOWN:
+                if event.dict['key'] == pygame.locals.K_p:
+                    return FullDisplay.COMMAND_PLAY
+                elif event.dict['key'] == pygame.locals.K_ESCAPE:
+                    sys.exit(0)
+                elif event.dict['key'] == pygame.locals.K_f:
+                    self.__fullscreen = not self.__fullscreen
+                    if self.__fullscreen:
+                        pygame.display.set_mode(displaySize, pygame.locals.FULLSCREEN)
+                    else:
+                        pygame.display.set_mode(displaySize)
         
     def toggleFullscreen(self):
         pygame.display.toggle_fullscreen()

@@ -1,5 +1,3 @@
-import pygame
-
 import sys
 import time
 
@@ -9,35 +7,40 @@ from pygamedisplay import FullDisplay
 from soundio import SoundPlayer, Recorder, fft
 
 
+x_data = []
+[x_data.append(idx * settings.sampling_rate/settings.recording_chunk_size)
+ for idx in range(int(settings.recording_chunk_size/2))]
+
+
+def compute_frequency_indices(lower: float, upper: float) -> list:
+    """
+    collect the indices that are in the tolerance range around the frequency
+    :param lower:
+    :param upper:
+    :return:
+    """
+    sum_idx = []
+    for idx, freq in enumerate(x_data):
+        if lower <= freq <= upper:
+            sum_idx.append(idx)
+        elif freq > upper:
+            break
+    return sum_idx
+
+
 class AudioSynapse:
     def __init__(self, frequency: float, tolerance=0.1, threshold=150):
         self.frequency = frequency
-        self.__threshold = threshold
         self.lower_freq = 0
         self.upper_freq = 0
+        self.__threshold = threshold
         self.__sum_idx = self.__create_indices(tolerance)
         self.__time_detected = 0
 
     def __create_indices(self, tolerance: float) -> list:
-        """
-        collect the indices that are in the tolerance range around the frequency
-        :param tolerance:
-        :return:
-        """
         self.lower_freq = (1 - tolerance * (1 - 1 / settings.NOTERATIO)) * self.frequency
         self.upper_freq = (1 + tolerance * (settings.NOTERATIO - 1)) * self.frequency
-
-        x_data = []
-        [x_data.append(idx * settings.sampling_rate/settings.recording_chunk_size)
-         for idx in range(int(settings.recording_chunk_size/2))]
-
-        sum_idx = []
-        for idx, freq in enumerate(x_data):
-            if self.lower_freq <= freq <= self.upper_freq:
-                sum_idx.append(idx)
-            elif freq > self.upper_freq:
-                break
-        return sum_idx
+        return compute_frequency_indices(self.lower_freq, self.upper_freq)
 
     def detect(self, current_signal: list) -> bool:
         """
@@ -83,8 +86,6 @@ class SynapticAudioTree:
 
 class MainApp:
     def __init__(self):
-        pygame.init()
-        self.__fullscreen = False
         self.__recorder = Recorder()
         self.__detector = SynapticAudioTree(settings.presynapticFrequencies,
                                             settings.frequencyTolerance,
@@ -104,30 +105,15 @@ class MainApp:
                                      height=settings.displaySize[1])
 
         self.__player = SoundPlayer()
-        
-    def input(self, events):
-        for event in events: 
-            if event.type == pygame.locals.QUIT:
-                sys.exit(0)
-            elif event.type == pygame.locals.MOUSEBUTTONDOWN:
-                self.__player.play()
-            elif event.type == pygame.locals.KEYDOWN:
-                if event.dict['key'] == pygame.locals.K_p:
-                    self.__player.play()
-                elif event.dict['key'] == pygame.locals.K_ESCAPE:
-                    sys.exit(0)
-                elif event.dict['key'] == pygame.locals.K_f:
-                    self.__fullscreen = not self.__fullscreen
-                    if self.__fullscreen:
-                        pygame.display.set_mode(settings.displaySize, pygame.locals.FULLSCREEN)
-                    else:
-                        pygame.display.set_mode(settings.displaySize)
     
     def run(self):
         upd_int = .01
         now = time.time()
         while True:
-            self.input(pygame.event.get())
+            value = self.__display.get_keyboard_input()
+            if value == FullDisplay.COMMAND_PLAY:
+                self.__player.play()
+
             time.sleep(0.001)
             if time.time()-now >= upd_int:
                 now = time.time()
