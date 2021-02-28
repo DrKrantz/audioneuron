@@ -1,4 +1,3 @@
-import sys
 import pygame
 import time
 from pygame.locals import *
@@ -10,12 +9,13 @@ from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recordin
     
 valueHandler = valuehandler.ValueHandler()
 
+
 class BallDisplay(pygame.Surface):
-    def __init__(self,screenSize=0,imageSize=0,limits = [-80e-3,-40e-3],
-                 bkgColor = (0,0,0,0),EL=-60e-3,threshold=-50e-3,
+    def __init__(self, screenSize=0, imageSize=0, limits=[-80e-3,-40e-3],
+                 bkgColor=(0, 0, 0, 0), EL=-60e-3, threshold=-50e-3,
                  **kwargs):
-        super(BallDisplay,self).__init__((screenSize,screenSize),**kwargs)
-        self.center = (int(round(screenSize/2)),int(round(screenSize/2)))
+        super(BallDisplay, self).__init__((screenSize, screenSize), **kwargs)
+        self.center = (int(round(screenSize/2)), int(round(screenSize/2)))
         self.imageSize = imageSize
         self.limits = limits
         self.bkgColor = bkgColor
@@ -25,74 +25,74 @@ class BallDisplay(pygame.Surface):
         self.threshold = self.__v2Rad(threshold)
         self.show()
         
-    def __v2Rad(self,v):
-        si = int(max([self.imageSize/2. * np.abs((self.limits[0]-v))/np.diff(self.limits),0]))
+    def __v2Rad(self, v):
+        si = int(max([self.imageSize/2. * np.abs((self.limits[0] - v))/np.diff(self.limits), 0]))
         return si
     
-    def show(self,v=None):
+    def show(self, v=None):
         self.fill(self.bkgColor)
-        pygame.draw.circle(self,pygame.Color('green'),self.center,self.baseValue,2)
-        pygame.draw.circle(self,pygame.Color('red'),self.center,self.threshold,2)
+        pygame.draw.circle(self,  pygame.Color('green'), self.center, self.baseValue, 2)
+        pygame.draw.circle(self, pygame.Color('red'), self.center, self.threshold, 2)
         if v:
-            pygame.draw.circle(self,colors[neuronalType],self.center,self.__v2Rad(v))
+            pygame.draw.circle(self, colors[neuronalType], self.center, self.__v2Rad(v))
         
 
 class MembraneDisplay(pygame.Surface):
-    def __init__(self,size=(0,0),xpoints=500.,ylim=[-80e-3,-45e-3],
-                 xscale='linear',yscale='linear',baseValue=-60e-3,
-                 bkgColor = (0,0,0,0),lineColor = (0,0,255,0),threshold=-50e-3,
+    def __init__(self, size=(0, 0), xpoints=500., ylim=[-80e-3, -45e-3],
+                 baseValue=-60e-3,
+                 bkgColor=(0, 0, 0, 0), lineColor=(0, 0, 255, 0), threshold=-50e-3,
                  **kwargs):
-        super(MembraneDisplay,self).__init__(size,**kwargs)
-        self.xpoints=xpoints
-        self.ylim=np.array(ylim)
+        super(MembraneDisplay, self).__init__(size, **kwargs)
+        self.xpoints = xpoints
+        self.ylim = np.array(ylim)
         self.bkgColor = bkgColor
         self.lineColor = lineColor
-        self.baseValue=baseValue
-        self.thresholdCoords=self.__coord2Px(np.array([0,xpoints-1]),
-                                             np.array([threshold,threshold]))
+        self.baseValue = baseValue
+        self.thresholdCoords = self.__coord2Px(np.array([0, xpoints-1]),
+                                               np.array([threshold, threshold]))
         self.fill(self.bkgColor)
         self.xdata = np.arange(xpoints)
         self.ydata = np.ones(int(xpoints))*self.baseValue
         self.show()
         
-    def __coord2Px(self,x,y):
+    def __coord2Px(self, x, y):
         xCoords = x*self.get_width()/self.xpoints
         yCoords = self.get_height()-self.get_height()*(y-self.ylim[0])/np.diff(self.ylim)
-        return list(zip(xCoords,yCoords))
+        return list(zip(xCoords, yCoords))
     
-    def addValue(self,v):
+    def addValue(self, v):
         if v == []:
-            self.ydata = np.concatenate((self.ydata[1::],[self.baseValue]))
+            self.ydata = np.concatenate((self.ydata[1::], [self.baseValue]))
         else:
-            self.ydata = np.concatenate((self.ydata[1::],[v]))
+            self.ydata = np.concatenate((self.ydata[1::], [v]))
         self.show()
     
     def show(self):
-        pxCoords = self.__coord2Px(self.xdata,self.ydata)
+        pxCoords = self.__coord2Px(self.xdata, self.ydata)
         self.fill(self.bkgColor)
-        pygame.draw.aalines(self,pygame.Color('red'),False,self.thresholdCoords,0)
-        pygame.draw.lines(self,colors[neuronalType],False,pxCoords,1)
+        pygame.draw.aalines(self, pygame.Color('red'), False, self.thresholdCoords, 0)
+        pygame.draw.lines(self, colors[neuronalType], False, pxCoords, 1)
+
 
 class GraphDisplay(pygame.Surface):
-    def __init__(self,size=(0,0),xlim=[-1,1],ylim=[-1,1],
-                 xscale='linear',yscale='linear',
-                 bkgColor = (0,0,0,0),
+    def __init__(self, size=(0, 0), xlim=[-1, 1], ylim=[-1, 1],
+                 bkgColor=(0, 0, 0, 0),
                  **kwargs):
-        super(GraphDisplay,self).__init__(size,**kwargs)
-        self.xlim=np.array(xlim)
-        self.ylim=np.array(ylim)
+        super(GraphDisplay, self).__init__(size, **kwargs)
+        self.xlim = np.array(xlim)
+        self.ylim = np.array(ylim)
         self.bkgColor = bkgColor
         self.fill(self.bkgColor)
         
-    def _coord2Px(self,x,y):
+    def _coord2Px(self, x, y):
         xCoords = self.get_width()*(x-self.xlim[0])/np.diff(self.xlim)
         yCoords = self.get_height()-self.get_height()*(y-self.ylim[0])/np.diff(self.ylim)
-        return list(zip(xCoords,yCoords))
+        return list(zip(xCoords, yCoords))
     
-    def plot(self,x,y):
+    def plot(self, x, y):
         self.fill(self.bkgColor)
-        pxCoords = self._coord2Px(x,y)
-        pygame.draw.aalines(self,colors['membrane'],False,pxCoords)
+        pxCoords = self._coord2Px(x, y)
+        pygame.draw.aalines(self, colors['membrane'], False, pxCoords)
 
 
 class FFTDisplay(GraphDisplay):
@@ -108,10 +108,10 @@ class FFTDisplay(GraphDisplay):
         for k, val in enumerate(detected_frequencies):
             rect = self.__freqRects[k][0]
             col = pygame.Color('red') if val else self.__freqRects[k][1] 
-            pygame.draw.rect(self,col,rect) 
+            pygame.draw.rect(self, col, rect)
              
-        pxCoords = self._coord2Px(x,y)
-        pygame.draw.lines(self,colors['fft'],False,pxCoords,1)
+        pxCoords = self._coord2Px(x, y)
+        pygame.draw.lines(self, colors['fft'], False, pxCoords, 1)
         
     def __createFrequencySurf(self):
         self.__freqRects = []
@@ -130,24 +130,21 @@ class FFTDisplay(GraphDisplay):
 
 
 class FullDisplay:
-    SPIKE_COL = [255,0,0]
-    SIZERATIO = [.3,.5,.2]
+    SPIKE_COL = [255, 0, 0]
+    SIZERATIO = [.3, .5, .2]
 
-    def __init__(self,playedFrequency=None,frequencies=None,types=None,intervals=None,
-                 startAudioCb=None, threshold=0, resting_potential=0, width=400,height=800):
+    def __init__(self, playedFrequency=None, frequencies=None, types=None, intervals=None,
+                 startAudioCb=None, threshold=0, resting_potential=0, width=400, height=800):
         self.width = width
         self.height = height
-        self.display = pygame.display.set_mode((self.width,self.height))
+        self.display = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption('Neuron '+str(neuronId)+' @ '+str(playedFrequency)+'Hz')
-#        self.name = pygame.font.Font.render('1')
-#        self.nameRect = pygame.Rect(0,0,100,10)
-#        self.display.blit(self.name,self.nameRect)
         
-        self.fftRect = pygame.Rect(0,0,self.width,self.height*self.SIZERATIO[0])
+        self.fftRect = pygame.Rect(0, 0, self.width, self.height*self.SIZERATIO[0])
         self.fftDisplay = FFTDisplay(types, intervals,
                                      size=(self.width, self.height*self.SIZERATIO[0]),
                                      xlim=np.log(fftDisplayXLimits), ylim=[0, 300])
-        self.display.blit(self.fftDisplay,self.fftRect)
+        self.display.blit(self.fftDisplay, self.fftRect)
 
         self.ballRect = pygame.Rect(0, self.height*self.SIZERATIO[0],
                                     self.width, self.height*self.SIZERATIO[1],
@@ -171,7 +168,7 @@ class FullDisplay:
         frqs = np.arange(recording_chunk_size) / (recording_chunk_size/float(sampling_rate))
         self.__x_data = frqs[list(range(int(recording_chunk_size / 2)))]
 
-    def setStartAudioCb(self,pyfunc):
+    def setStartAudioCb(self, pyfunc):
         self.__startAudio = pyfunc
         
 #    def setFftData(self,x,y):
@@ -204,37 +201,35 @@ class FullDisplay:
         
         
 class FFTHandler(object):
-    def __init__(self,display,rect):
-        super(FFTHandler,self).__init__()
+    def __init__(self, display, rect):
+        super(FFTHandler, self).__init__()
         self.__display = display
         self.__rect = rect
-        self.surface = GraphDisplay((400,700)) #ylim=[-70,-40]
+        self.surface = GraphDisplay((400, 700)) #ylim=[-70,-40]
 #        self.screen = app.Screen(screen,(800,0),(400, 400))
 #        self.surface.plot(np.linspace(-1,1,2000),2*np.random.rand(2000)-1)
         self.__server = None
         self.setupOSC()
         self.update()
         
-        
-#        self.screen.update()
     def setupOSC(self):
         if self.__server is not None:
             self.__server.close()
             self.__server = None
-        server = OSC.OSCServer( ('127.0.0.1',simulationPars()['membranePort']) )
+        server = OSC.OSCServer( ('127.0.0.1', simulationPars()['membranePort']) )
         ms = threading.Thread( target = server.serve_forever )
         ms.start()
         server.addMsgHandler("/fromNetwork",self.__fromNetwork)
         self.__server = server
         
-    def update(self,v=[]):
+    def update(self, v=[]):
         self.surface.addValue(v)
         self.__display.blit(self.surface,self.__rect)
         ''' THE LEAK DOES NOT OCCUR WHEN EVENTS INDUCE THE DISPLAY_UPDATE!!! '''
         pygame.display.update() 
 #        pygame.display.flip()
         
-    def __fromNetwork(self,addr, tags, data, source):
+    def __fromNetwork(self, addr, tags, data, source):
         print(data)
         self.update()
 
