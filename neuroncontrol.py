@@ -2,7 +2,6 @@
 
 import math
 import time
-import numpy as np
 
 
 class Synapse(object):
@@ -10,8 +9,8 @@ class Synapse(object):
         super(Synapse, self).__init__()
         self.strength = s
         
-    def update(self, presynapticSpike=True):
-        if presynapticSpike:
+    def update(self, presynaptic_spike=True):
+        if presynaptic_spike:
             return self.strength
         else:
             return 0
@@ -28,13 +27,13 @@ class PlasticSynapse(Synapse):
     def setLastSpikeGetter(self, lastSpikeGetter):
         self.__getlastSpike = lastSpikeGetter
     
-    def update(self, time, presynapticSpike=True, postsynapticSpike=True):
-        if presynapticSpike and not postsynapticSpike:
+    def update(self, time, presynaptic_spike=True, postsynapticSpike=True):
+        if presynaptic_spike and not postsynapticSpike:
             self.lastActive=time
             self.strength -= self.Aminus*math.exp(
                             (self.lastActive-self.__getlastSpike())/self.tauSTDP) 
             returnValue = self.strength
-        elif not presynapticSpike and postsynapticSpike:
+        elif not presynaptic_spike and postsynapticSpike:
             self.strength +=  self.Aplus*math.exp((time-self.lastActive)/self.tauSTDP)
             returnValue = 0
 #            print self.strength
@@ -66,11 +65,11 @@ class Neuron(object):
     
 
 class DestexheNeuron(object):
-    def __init__(self,**kwargs):
-        super(DestexheNeuron,self).__init__()
+    def __init__(self, **kwargs):
+        super(DestexheNeuron, self).__init__()
         self.setParams(**kwargs)
 
-        #  initialize reamining values
+        #  initialize remaining values
         self._remainingDeadtime = 0
         self._w = 0
         self._ge = 0
@@ -91,11 +90,11 @@ class DestexheNeuron(object):
         
         self._threshold = threshold  # firing threshold of individual neurons, V
         self._Cm = Cm  # membrane capacitance, F/cm2
-        self._gL = gL  # leak conductances, S/cm2
+        self._gL = gL  # leak conductance, S/cm2
         self._EL = EL  # resting potential = reset after spike, V
         self._Delta = Delta  # steepness of exponential, V
         self._S = S  # membrane area, cm2
-        self._dead = dead  # deadtime
+        self._dead = dead  # dead time
         
         self._a = a  # adaptation dynamics of the synapses, S
         self._b = b  # increment of adaptation after a spike
@@ -124,7 +123,7 @@ class DestexheNeuron(object):
     
     def _setupSynapses(self):
         self._synapses = {}
-        for presNeuron, type in list(self._presynapticNeurons.items()):
+        for presNeuron, type in self._presynapticNeurons.items():
             if type == 'E':
                 self._synapses[presNeuron] = Synapse(s=self._s_e)
             else:
@@ -141,8 +140,8 @@ class DestexheNeuron(object):
             self.recording['w'] += ', '+str(self._w)
     
     def __writeRecording(self):
-        TORDIR = '/Volumes/data1/__Gastkuenstler__/TimOttoRoth/TimOttoRoth_August2011/Neuron/data/'
-        output = open(TORDIR+'data_port'+str(int(self._port))+'.txt', 'wb')
+        tordir = '/Volumes/data1/__Gastkuenstler__/TimOttoRoth/TimOttoRoth_August2011/Neuron/data/'
+        output = open(tordir+'data_port'+str(int(self._port))+'.txt', 'w')
         output.write(self.recording['v']+'\n')
         output.write(self.recording['ge']+'\n')
         output.write(self.recording['gi']+'\n')
@@ -153,28 +152,30 @@ class DestexheNeuron(object):
         output.close()
         self.__hasRecorded = True
          
-    def update(self, detectedFrequencies):
-        activeNeurons, = np.nonzero(detectedFrequencies)
-        self._updateMembrane(activeNeurons)
+    def update(self, detected_frequencies):
+        """
+        TODO
+        # COMPUTE dt!!!
+        realdt = (time.time()-self.__lastUpdate)
+        dt = realdt/self._maxMspTime
+        self.__lastUpdate = time.time()
+        """
+        dt = 1e-3
+        self._runtime += dt
+
+        self._update_conductances(detected_frequencies, dt)
+        self._update_membrane(dt)
         return self._hasSpiked
 
     def get_value(self, value):
         return getattr(self, "_" + value)
     
-    def _updateMembrane(self, activeNeurons):
-        '''
-        # COMPUTE dt!!!
-        realdt = (time.time()-self.__lastUpdate)
-        dt = realdt/self._maxMspTime
-        self.__lastUpdate = time.time()
-        '''
-        if self._v>=self._threshold:
+    def _update_membrane(self, dt):
+        if self._v >= self._threshold:
             self._v = self._EL  # set spiked neurons to reset potential
-        dt = 1e-3
-        self._runtime += dt
-        self._updateConductances(activeNeurons, dt)
+
         self._hasSpiked = False
-        if self._remainingDeadtime>0:
+        if self._remainingDeadtime > 0:
             self._remainingDeadtime -= dt
         else:
             # UPDATE MEMBRANE POTENTIAL, ADAPTATION AND CHECK FOR SPIKE
@@ -193,13 +194,13 @@ class DestexheNeuron(object):
                 
         self.__recordVariables()
             
-    def _updateConductances(self, activeNeurons, dt):
-        input_e, input_i = 0,0
-        for neuron, synapse in list(self._synapses.items()):
-            if self._presynapticNeurons[neuron]=='E':
-                input_e += synapse.update(presynapticSpike=neuron in activeNeurons)
+    def _update_conductances(self, detected_frequencies, dt):
+        input_e, input_i = 0, 0
+        for neuron_id, synapse in self._synapses.items():
+            if self._presynapticNeurons[neuron_id] == 'E':
+                input_e += synapse.update(presynaptic_spike=detected_frequencies[neuron_id])
             else:
-                input_i += synapse.update(presynapticSpike=neuron in activeNeurons)
+                input_i += synapse.update(presynaptic_spike=detected_frequencies[neuron_id])
         self._ge += -dt*self._ge/self._tau_e+input_e
         self._gi += -dt*self._gi/self._tau_i+input_i
         
@@ -221,22 +222,22 @@ class PlasticDestexheNeuron(DestexheNeuron):
                 self._synapses[presNeuron] = PlasticSynapse(s=self._s_i)
             self._synapses[presNeuron].setLastSpikeGetter(self.__lastSpikeGetter)
 
-    def _updateConductances(self, activeNeurons, dt):
+    def _update_conductances(self, activeNeurons, dt):
         input_e, input_i = 0, 0
         for presNeuron, synapse in list(self._synapses.items()):
             if self._presynapticNeurons[presNeuron] == 'E':
                 input_e += synapse.update(self._runtime,
-                                          presynapticSpike=presNeuron in activeNeurons,
+                                          presynaptic_spike=presNeuron in activeNeurons,
                                           postsynapticSpike=self._hasSpiked)
             else:
                 input_i += synapse.update(self._runtime,
-                                          presynapticSpike=presNeuron in activeNeurons,
+                                          presynaptic_spike=presNeuron in activeNeurons,
                                           postsynapticSpike=self._hasSpiked)
         self._ge += -dt*self._ge/self._tau_e + input_e
         self._gi += -dt*self._gi/self._tau_i + input_i
     
     def update(self, activeNeurons):
-        self._updateMembrane(activeNeurons)
+        self._update_membrane(activeNeurons)
         if self._hasSpiked:
             self.__lastSpikeTime = self._runtime
         return self._hasSpiked, self._v
