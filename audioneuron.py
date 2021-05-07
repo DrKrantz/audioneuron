@@ -3,7 +3,7 @@ import time
 
 from neuroncontrol import DestexheNeuron
 import settings
-from pygamedisplay import FullDisplay
+import display
 from soundio import SoundPlayer, Recorder, fft
 
 
@@ -95,14 +95,14 @@ class MainApp:
         pars = settings.defaultPars(settings.neuronalType)
         self.__neuron.setParams(presynapticNeurons=settings.presynapticNeurons, **pars)
 
-        self.__display = FullDisplay(playedFrequency=settings.neuronalFrequency,
-                                     frequencies=settings.presynapticFrequencies,
-                                     intervals=self.__detector.get_intervals(),
-                                     types=list(settings.presynapticNeurons.values()),
-                                     threshold=pars['threshold'],
-                                     resting_potential=pars['EL'],
-                                     width=settings.displaySize[0],
-                                     height=settings.displaySize[1])
+        self.__display = display.FullDisplay(playedFrequency=settings.neuronalFrequency,
+                                             frequencies=settings.presynapticFrequencies,
+                                             intervals=self.__detector.get_intervals(),
+                                             types=list(settings.presynapticNeurons.values()),
+                                             threshold=pars['threshold'],
+                                             resting_potential=pars['EL'],
+                                             width=settings.displaySize[0],
+                                             height=settings.displaySize[1])
 
         self.__player = SoundPlayer()
     
@@ -111,7 +111,7 @@ class MainApp:
         now = time.time()
         while True:
             value = self.__display.get_keyboard_input()
-            if value == FullDisplay.COMMAND_PLAY:
+            if value == display.COMMAND_PLAY:
                 self.__player.play()
 
             time.sleep(0.001)

@@ -10,6 +10,8 @@ from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recordin
 
 pygame.init()
 
+COMMAND_PLAY = 0
+
 
 class BallDisplay(pygame.Surface):
     def __init__(self, screenSize=0, imageSize=0, limits=[-80e-3,-40e-3],
@@ -97,8 +99,8 @@ class GraphDisplay(pygame.Surface):
 
 
 class FFTDisplay(GraphDisplay):
-    def __init__(self,types=None,intervals=None,**kwargs):
-        super(FFTDisplay,self).__init__(**kwargs)
+    def __init__(self, types=None, intervals=None, **kwargs):
+        super(FFTDisplay, self).__init__(**kwargs)
         self.__types = types
         self.__intervals = intervals
         self.__detected = np.zeros(len(intervals))
@@ -133,7 +135,6 @@ class FFTDisplay(GraphDisplay):
 class FullDisplay:
     SPIKE_COL = [255, 0, 0]
     SIZERATIO = [.3, .5, .2]
-    COMMAND_PLAY = 0
 
     def __init__(self, playedFrequency=None, frequencies=None, types=None, intervals=None,
                  startAudioCb=None, threshold=0, resting_potential=0, width=400, height=800):
