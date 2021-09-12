@@ -26,19 +26,20 @@ class Singleton:
     def __setattr__(self, attr, value):
         """ Delegate access to implementation """
         return setattr(self.__instance, attr, value)
-    
+
+
 class ValueHandler(Singleton):
     def __init__(self):
         Singleton.__init__(Singleton())
         self.__values = {}
     
-    def __setitem__(self,item,value):
+    def __setitem__(self, item, value):
         self.__values[item] = value
         
-    def __getitem__(self,item):
+    def __getitem__(self, item):
         return self.__values[item]
     
-    def update(self,**dic):
+    def update(self, **dic):
         self.__values.update(dic)
     
     def keys(self):

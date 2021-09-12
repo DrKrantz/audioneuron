@@ -1,7 +1,10 @@
+import wave
+
+import numpy as np
 import pygame
 import pyaudio
-import wave
-import numpy as np
+
+
 import settings
 
 p = pyaudio.PyAudio()

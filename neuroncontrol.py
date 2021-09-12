@@ -18,7 +18,7 @@ class Synapse(object):
 
 class PlasticSynapse(Synapse):
     def __init__(self, tauSTDP=0.02, Aplus=1e-9, Aminus=0, **kwargs):
-        super(PlasticSynapse,self).__init__(**kwargs)
+        super(PlasticSynapse, self).__init__(**kwargs)
         self.tauSTDP = tauSTDP
         self.Aplus = Aplus
         self.Aminus = Aminus

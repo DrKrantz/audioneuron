@@ -1,9 +1,11 @@
 import sys
-import pygame
 import time
-from pygame.locals import *
-import numpy as np
 from threading import Thread
+
+import pygame
+import pygame.locals
+import numpy as np
+
 
 from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recording_chunk_size, sampling_rate, displaySize
 
@@ -205,10 +207,10 @@ class FullDisplay:
             if event.type == pygame.locals.QUIT:
                 sys.exit(0)
             elif event.type == pygame.locals.MOUSEBUTTONDOWN:
-                return FullDisplay.COMMAND_PLAY
+                return COMMAND_PLAY
             elif event.type == pygame.locals.KEYDOWN:
                 if event.dict['key'] == pygame.locals.K_p:
-                    return FullDisplay.COMMAND_PLAY
+                    return COMMAND_PLAY
                 elif event.dict['key'] == pygame.locals.K_ESCAPE:
                     sys.exit(0)
                 elif event.dict['key'] == pygame.locals.K_f:
