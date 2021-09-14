@@ -1,11 +1,8 @@
 import sys
-import time
-from threading import Thread
-
 import pygame
-import pygame.locals
+import time
 import numpy as np
-
+from threading import Thread
 
 from settings import colors, neuronalType, neuronId, fftDisplayXLimits, recording_chunk_size, sampling_rate, displaySize
 
@@ -222,47 +219,13 @@ class FullDisplay:
         
     def toggleFullscreen(self):
         pygame.display.toggle_fullscreen()
-        
-        
-class FFTHandler(object):
-    def __init__(self, display, rect):
-        super(FFTHandler, self).__init__()
-        self.__display = display
-        self.__rect = rect
-        self.surface = GraphDisplay((400, 700)) #ylim=[-70,-40]
-#        self.screen = app.Screen(screen,(800,0),(400, 400))
-#        self.surface.plot(np.linspace(-1,1,2000),2*np.random.rand(2000)-1)
-        self.__server = None
-        self.setupOSC()
-        self.update()
-        
-    def setupOSC(self):
-        if self.__server is not None:
-            self.__server.close()
-            self.__server = None
-        server = OSC.OSCServer( ('127.0.0.1', simulationPars()['membranePort']) )
-        ms = threading.Thread( target = server.serve_forever )
-        ms.start()
-        server.addMsgHandler("/fromNetwork",self.__fromNetwork)
-        self.__server = server
-        
-    def update(self, v=[]):
-        self.surface.addValue(v)
-        self.__display.blit(self.surface,self.__rect)
-        ''' THE LEAK DOES NOT OCCUR WHEN EVENTS INDUCE THE DISPLAY_UPDATE!!! '''
-        pygame.display.update() 
-#        pygame.display.flip()
-        
-    def __fromNetwork(self, addr, tags, data, source):
-        print(data)
-        self.update()
 
 
 class Screen:
-    def __init__(self,surface,surfPos,size):
+    def __init__(self, surface, surfPos, size):
         self.display = pygame.display.set_mode(size)
         self.surface = surface
-        self.rect = pygame.Rect((surfPos[0],surfPos[1], 
+        self.rect = pygame.Rect((surfPos[0], surfPos[1],
                                  self.surface.get_width(), self.surface.get_height()))
         
         self.update()
@@ -273,10 +236,10 @@ class Screen:
 
 
 class Display(Thread):
-    def __init__(self,surfPos,screenSize,**kwargs):
-        super(Display,self).__init__()
+    def __init__(self, surfPos, screenSize, **kwargs):
+        super(Display, self).__init__()
         self.graphDisplay = GraphDisplay(**kwargs)
-        self.screen = Screen(self.graphDisplay,surfPos,screenSize)
+        self.screen = Screen(self.graphDisplay, surfPos, screenSize)
         self.busy=False
         self.__isRunning = False
         self.xData = None
