@@ -4,7 +4,6 @@ import numpy as np
 import pygame
 import pyaudio
 
-
 import settings
 
 p = pyaudio.PyAudio()

@@ -155,4 +155,3 @@ class DestexheNeuron(object):
                 input_i += synapse.update(presynaptic_spike=detected_frequencies[neuron_id])
         self._ge += -dt*self._ge/self._tau_e+input_e
         self._gi += -dt*self._gi/self._tau_i+input_i
-
