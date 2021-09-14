@@ -171,19 +171,6 @@ class FullDisplay:
         frqs = np.arange(recording_chunk_size) / (recording_chunk_size/float(sampling_rate))
         self.__x_data = frqs[list(range(int(recording_chunk_size / 2)))]
 
-    def setStartAudioCb(self, pyfunc):
-        self.__startAudio = pyfunc
-        
-#    def setFftData(self,x,y):
-#        self.fftDisplay.plot(np.log(x[x>0]),y[x>0])
-#        
-#    def setMembraneData(self,v):
-#        self.membraneDisplay.addValue(v)
-#        self.ballDisplay.show(v)
-#        
-#    def setSpiked(self,spiked):
-#        self.__hasSpiked = spiked
-
     def update(self, has_fired, y=None, v=None, detected_freqs=None):
         self.fftDisplay.plot(np.log(self.__x_data[self.__x_data > 0]), y[self.__x_data > 0], detected_freqs)
         self.membraneDisplay.addValue(v)
