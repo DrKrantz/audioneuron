@@ -1,5 +1,6 @@
 import sys
 import pygame
+import pygame.locals
 import time
 import numpy as np
 from threading import Thread
@@ -260,13 +261,11 @@ class Display(Thread):
 if __name__=='__main__':
     surface = GraphDisplay((300,300))
     screen = Screen(surface,(30,30),(400, 400))
-#    display = pygame.display.set_mode()
-    
+
     time.sleep(1)
     surface.plot(np.linspace(-1,1,2000),2*np.random.rand(2000)-1)
     screen.update()
-#    display.blit(surf, my_rect.topleft)
-#    pygame.display.update()
+
     xx = np.linspace(-1,1,20)
     for k in range(100):
         time.sleep(.01)
@@ -274,10 +273,3 @@ if __name__=='__main__':
         now = time.time()
         surface.plot(xx,yy)
         screen.update()
-    #    display.blit(surf, my_rect.topleft)
-    #    pygame.display.update()
-#        print 'passed',time.time() - now
-#    time.sleep(1)
-#    while not pygame.event.wait().type in (QUIT, KEYDOWN):
-#        pass
-#    uwe = Display()
